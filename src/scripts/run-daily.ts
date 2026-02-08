@@ -3,10 +3,13 @@ import path from 'node:path';
 
 import { loadConfig, loadTracks } from '../lib/config.js';
 import { openDb, migrate } from '../lib/db.js';
-import { ensureStorageRoot, upsertPaper, upsertTrackMatch } from '../lib/repo.js';
+import { ensureStorageRoot, upsertPaper, upsertTrackMatch, listMatchedPapersMissingArtifacts, updatePdfSha, updateVersionSha } from '../lib/repo.js';
 import { fetchAtom, parseAtom, withinLastDays } from '../lib/arxiv.js';
 import { matchTrack } from '../lib/match.js';
 import { paperPaths } from '../lib/storage.js';
+import { downloadToFile } from '../lib/download.js';
+import { extractPdfToText, hasPdfToText } from '../lib/extract.js';
+import { jitter, sleep } from '../lib/sleep.js';
 
 const repoRoot = path.resolve(process.cwd());
 const config = loadConfig(repoRoot);
@@ -40,6 +43,8 @@ const stats = {
 
 try {
   for (const cat of config.discovery.categories) {
+    // Politeness delay between category fetches (separate from PDF download jitter)
+    await sleep(jitter(1100, 2950));
     const xml = await fetchAtom(cat, 100);
     const entries = parseAtom(xml);
     stats.fetchedEntries += entries.length;
@@ -85,10 +90,57 @@ try {
     }
   }
 
+  // --- Step 3: download PDFs + extract text for matched papers only ---
+  const pdfToTextOk = hasPdfToText();
+  if (!pdfToTextOk) {
+    console.warn('pdftotext is not installed. Skipping PDF text extraction for now.');
+  }
+
+  const matched = listMatchedPapersMissingArtifacts(db, 200);
+  let downloaded = 0;
+  let extracted = 0;
+
+  for (const p of matched) {
+    const needsPdf = !fs.existsSync(p.pdf_path);
+    const needsTxt = !fs.existsSync(p.txt_path);
+
+    if (!needsPdf && (!needsTxt || !pdfToTextOk)) continue;
+
+    try {
+      const meta = JSON.parse(fs.readFileSync(p.meta_path, 'utf8')) as { pdfUrl?: string; version?: string };
+      const pdfUrl = meta.pdfUrl ?? null;
+      const version = meta.version ?? null;
+
+      if (needsPdf) {
+        if (!pdfUrl) {
+          console.warn(`No pdfUrl for ${p.arxiv_id}, skipping download`);
+        } else {
+          // Conservative jitter for arXiv friendliness
+          const waitMs = jitter(1100, 2950);
+          await sleep(waitMs);
+          const res = await downloadToFile(pdfUrl, p.pdf_path);
+          updatePdfSha(db, p.arxiv_id, res.sha256);
+          if (version) updateVersionSha(db, p.arxiv_id, version, res.sha256);
+          downloaded += 1;
+        }
+      }
+
+      if (pdfToTextOk && fs.existsSync(p.pdf_path) && needsTxt) {
+        extractPdfToText(p.pdf_path, p.txt_path);
+        extracted += 1;
+      }
+    } catch (e) {
+      console.warn(`Artifact step failed for ${p.arxiv_id}: ${String((e as any)?.message ?? e)}`);
+    }
+  }
+
+  (stats as any).downloadedPdfs = downloaded;
+  (stats as any).extractedTexts = extracted;
+
   db.sqlite.prepare('UPDATE runs SET finished_at=?, status=?, stats_json=? WHERE run_id=?')
     .run(new Date().toISOString(), 'ok', JSON.stringify(stats), runId);
 
-  console.log(`Daily discovery OK. Papers upserted: ${stats.upsertedPapers}. Track matches: ${stats.trackMatches}`);
+  console.log(`Daily OK. Papers upserted: ${stats.upsertedPapers}. Track matches: ${stats.trackMatches}. PDFs: ${downloaded}, txt: ${extracted}`);
 } catch (err: any) {
   db.sqlite.prepare('UPDATE runs SET finished_at=?, status=?, stats_json=? WHERE run_id=?')
     .run(new Date().toISOString(), 'error', JSON.stringify({ ...stats, error: String(err?.message ?? err) }), runId);

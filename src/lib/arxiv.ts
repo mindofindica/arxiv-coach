@@ -51,13 +51,32 @@ function normalizeSummary(s: string): string {
 // If we need more coverage, make it configurable in config.yml.
 export async function fetchAtom(category: string, maxResults = 100): Promise<string> {
   const url = `https://export.arxiv.org/api/query?search_query=cat:${encodeURIComponent(category)}&start=0&max_results=${maxResults}&sortBy=lastUpdatedDate&sortOrder=descending`;
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': 'arxiv-coach (+https://github.com/mindofindica/arxiv-coach)',
-    },
-  });
-  if (!res.ok) throw new Error(`arXiv fetch failed for ${category}: ${res.status} ${res.statusText}`);
-  return await res.text();
+
+  // Be polite + resilient: retry on transient failures (esp. 429 rate limiting).
+  // NOTE: We keep this conservative to avoid hammering arXiv.
+  const maxAttempts = 5;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'arxiv-coach (+https://github.com/mindofindica/arxiv-coach)',
+      },
+    });
+
+    if (res.ok) return await res.text();
+
+    const status = res.status;
+    const retryable = status === 429 || (status >= 500 && status <= 599);
+    if (!retryable || attempt === maxAttempts) {
+      throw new Error(`arXiv fetch failed for ${category}: ${status} ${res.statusText}`);
+    }
+
+    // Exponential backoff with jitter
+    const base = Math.min(60_000, 1000 * 2 ** (attempt - 1));
+    const waitMs = Math.floor(base * (0.75 + Math.random() * 0.75));
+    await new Promise((r) => setTimeout(r, waitMs));
+  }
+
+  throw new Error(`arXiv fetch failed for ${category}: exceeded retries`);
 }
 
 export function parseAtom(xml: string): ArxivEntry[] {
