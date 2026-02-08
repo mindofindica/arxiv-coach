@@ -209,15 +209,17 @@ export async function runDaily(opts: DailyRunOptions): Promise<DailyRunResult> {
 
     const alreadySent = hasDigestBeenSent(db, dateIso);
 
-    // Print in machine-readable form for the OpenClaw runner.
-    console.log(JSON.stringify({
-      kind: 'dailyDigest',
-      date: dateIso,
+    const digestPlan = {
+      dateIso,
       digestPath,
       header: header.text,
       tracks: perTrack.map((m) => ({ track: m.track, message: m.text })),
       alreadySent,
-    }));
+      items: selection.totals.items,
+      tracksWithItems: selection.totals.tracksWithItems,
+    };
+
+    stats.digestPlan = digestPlan;
 
     const status: DailyRunResult['status'] = stats.discoveryErrors.length > 0 ? 'warn' : 'ok';
     finalizeRun(db, runId, status, stats);
