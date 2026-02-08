@@ -32,12 +32,13 @@ db.sqlite.prepare(
 const now = new Date();
 const DAYS = 3;
 
-const stats = {
+const stats: any = {
   categories: config.discovery.categories,
   fetchedEntries: 0,
   keptEntries: 0,
   upsertedPapers: 0,
   trackMatches: 0,
+  discoveryErrors: [],
   startedAt,
 };
 
@@ -45,7 +46,19 @@ try {
   for (const cat of config.discovery.categories) {
     // Politeness delay between category fetches (separate from PDF download jitter)
     await sleep(jitter(1100, 2950));
-    const xml = await fetchAtom(cat, 100);
+
+    let xml: string;
+    try {
+      xml = await fetchAtom(cat, 100);
+    } catch (e) {
+      // If arXiv is rate limiting (429), we still want the run to succeed so we can
+      // process any already-matched backlog in the artifact step.
+      const msg = String((e as any)?.message ?? e);
+      console.warn(`Discovery fetch failed for ${cat}: ${msg}`);
+      stats.discoveryErrors.push({ category: cat, error: msg });
+      continue;
+    }
+
     const entries = parseAtom(xml);
     stats.fetchedEntries += entries.length;
 
@@ -137,8 +150,15 @@ try {
   (stats as any).downloadedPdfs = downloaded;
   (stats as any).extractedTexts = extracted;
 
+  const finishedAt = new Date().toISOString();
+  const status = stats.discoveryErrors.length > 0 ? 'warn' : 'ok';
+
   db.sqlite.prepare('UPDATE runs SET finished_at=?, status=?, stats_json=? WHERE run_id=?')
-    .run(new Date().toISOString(), 'ok', JSON.stringify(stats), runId);
+    .run(finishedAt, status, JSON.stringify(stats), runId);
+
+  if (status === 'warn') {
+    console.warn(`Daily completed with discovery warnings (${stats.discoveryErrors.length}). See runs.stats_json for details.`);
+  }
 
   console.log(`Daily OK. Papers upserted: ${stats.upsertedPapers}. Track matches: ${stats.trackMatches}. PDFs: ${downloaded}, txt: ${extracted}`);
 } catch (err: any) {
