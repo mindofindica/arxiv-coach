@@ -4,6 +4,9 @@ import path from 'node:path';
 import type { AppConfig, TracksFile } from '../types.js';
 import { openDb, migrate, type Db } from '../db.js';
 import { ensureStorageRoot, listMatchedPapersMissingArtifacts, updatePdfSha, updateVersionSha, upsertPaper, upsertTrackMatch } from '../repo.js';
+import { selectDailyByTrack } from '../digest/select.js';
+import { renderDailyMarkdown, renderHeaderSignalMessage, renderTrackSignalMessage } from '../digest/render.js';
+import { ensureDir, dailyDigestPath } from '../storage.js';
 import { fetchAtom, parseAtom, withinLastDays } from '../arxiv.js';
 import { matchTrack } from '../match.js';
 import { paperPaths } from '../storage.js';
@@ -37,6 +40,13 @@ function insertRun(db: Db, runId: string, startedAt: string) {
 function finalizeRun(db: Db, runId: string, status: string, stats: any) {
   db.sqlite.prepare('UPDATE runs SET finished_at=?, status=?, stats_json=? WHERE run_id=?')
     .run(new Date().toISOString(), status, JSON.stringify(stats), runId);
+}
+
+function isoDate(now: Date): string {
+  const yyyy = now.getUTCFullYear();
+  const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(now.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 export async function runDaily(opts: DailyRunOptions): Promise<DailyRunResult> {
@@ -162,6 +172,44 @@ export async function runDaily(opts: DailyRunOptions): Promise<DailyRunResult> {
         console.warn(`Artifact step failed for ${p.arxiv_id}: ${String((e as any)?.message ?? e)}`);
       }
     }
+
+    // --- Step 4 (prep): select + render digest content ---
+    const selection = selectDailyByTrack(db, {
+      maxItemsPerDigest: config.limits.maxItemsPerDigest,
+      maxPerTrack: config.limits.maxPerTrackPerDay,
+    });
+
+    const dateIso = isoDate(now);
+    const md = renderDailyMarkdown(dateIso, selection.byTrack);
+    const digestPath = dailyDigestPath(config.storage.root, now);
+    ensureDir(path.dirname(digestPath));
+    fs.writeFileSync(digestPath, md);
+
+    // Instead of sending to Signal from within Node (OpenClaw owns delivery),
+    // we emit prepared messages so the orchestrator/cron job can deliver them.
+    const header = renderHeaderSignalMessage(dateIso, selection.byTrack);
+    const perTrack = Array.from(selection.byTrack.entries()).map(([track, papers]) => ({
+      track,
+      ...renderTrackSignalMessage(track, papers),
+    }));
+
+    stats.digest = {
+      date: dateIso,
+      path: digestPath,
+      tracks: selection.totals.tracksWithItems,
+      items: selection.totals.items,
+      headerTruncated: header.truncated,
+      trackMessages: perTrack.map((m) => ({ track: m.track, truncated: m.truncated, chars: m.text.length })),
+    };
+
+    // Print in machine-readable form for the OpenClaw runner.
+    console.log(JSON.stringify({
+      kind: 'dailyDigest',
+      date: dateIso,
+      digestPath,
+      header: header.text,
+      tracks: perTrack.map((m) => ({ track: m.track, message: m.text })),
+    }));
 
     const status: DailyRunResult['status'] = stats.discoveryErrors.length > 0 ? 'warn' : 'ok';
     finalizeRun(db, runId, status, stats);

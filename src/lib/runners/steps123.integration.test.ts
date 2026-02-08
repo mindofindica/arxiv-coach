@@ -74,14 +74,18 @@ describe('Integration: steps 1–3', () => {
   const originalWarn = console.warn;
   const originalError = console.error;
 
+  const originalLog = console.log;
+
   beforeAll(() => {
     console.warn = () => {};
     console.error = () => {};
+    console.log = () => {};
   });
 
   afterAll(() => {
     console.warn = originalWarn;
     console.error = originalError;
+    console.log = originalLog;
   });
   it('Step1: DB migration smoke creates expected tables', () => {
     const storageRoot = mkTmpDir();

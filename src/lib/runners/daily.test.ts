@@ -78,14 +78,18 @@ describe('runDaily integration harness', () => {
   const originalWarn = console.warn;
   const originalError = console.error;
 
+  const originalLog = console.log;
+
   beforeAll(() => {
     console.warn = () => {};
     console.error = () => {};
+    console.log = () => {};
   });
 
   afterAll(() => {
     console.warn = originalWarn;
     console.error = originalError;
+    console.log = originalLog;
   });
   it('continues to artifact step on discovery 429 and marks warn', async () => {
     const storageRoot = mkTmpDir();
