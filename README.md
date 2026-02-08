@@ -2,6 +2,10 @@
 
 Personal arXiv → learning pipeline for Mikey (LLM engineering, agent-first).
 
+## Launch log
+
+- 2026-02-08 — V0 shipped + first public post: https://x.com/mindofindica/status/2020621678603341915
+
 ## Goals
 
 - Daily 10-minute briefing: max 3–5 high-signal papers relevant to *agents/LLM engineering*.
