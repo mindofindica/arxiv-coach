@@ -43,6 +43,14 @@ export function renderHeaderSignalMessage(dateIso: string, grouped: Map<string, 
 
   const lines: string[] = [];
   lines.push(`arxiv-coach — daily digest (${dateIso})`);
+
+  if (totalItems === 0) {
+    lines.push('No matching papers today across your tracks.');
+    lines.push('');
+    lines.push("Tip: you can ask for a 'background builder' paper if you want to keep momentum.");
+    return truncateForSignal(lines.join('\n'));
+  }
+
   lines.push(`${totalItems} papers across ${totalTracks} track(s).`);
   lines.push('');
   for (const [track, papers] of grouped) {

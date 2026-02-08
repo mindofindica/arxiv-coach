@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderTrackSignalMessage } from './render.js';
+import { renderHeaderSignalMessage, renderTrackSignalMessage } from './render.js';
 
 describe('renderTrackSignalMessage', () => {
   it('includes title and link when present', () => {
@@ -18,5 +18,13 @@ describe('renderTrackSignalMessage', () => {
     ]);
     expect(r.text).toContain('A Paper');
     expect(r.text).toContain('http://arxiv.org/abs/2502.1');
+  });
+});
+
+describe('renderHeaderSignalMessage', () => {
+  it('handles 0 papers case with a friendly message', () => {
+    const grouped = new Map();
+    const r = renderHeaderSignalMessage('2026-02-08', grouped);
+    expect(r.text).toContain('No matching papers today');
   });
 });
