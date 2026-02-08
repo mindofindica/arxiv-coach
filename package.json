@@ -1,0 +1,29 @@
+{
+  "name": "arxiv-coach",
+  "version": "0.1.0",
+  "description": "Personal arXiv → learning pipeline for Mikey (LLM engineering, agent-first).",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mindofindica/arxiv-coach.git"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "daily": "tsx src/scripts/run-daily.ts",
+    "weekly": "tsx src/scripts/run-weekly.ts",
+    "explain": "tsx src/scripts/explain.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.6.2",
+    "fast-xml-parser": "^5.3.5",
+    "yaml": "^2.8.2",
+    "zod": "^4.3.6"
+  }
+}
