@@ -1,0 +1,102 @@
+import { XMLParser } from 'fast-xml-parser';
+
+export interface ArxivEntry {
+  arxivId: string; // canonical, no version
+  version: string; // v1, v2, ...
+  title: string;
+  summary: string;
+  authors: string[];
+  categories: string[];
+  publishedAt: string;
+  updatedAt: string;
+  pdfUrl: string | null;
+  absUrl: string | null;
+  rawIdUrl: string;
+}
+
+const parser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: '@_',
+});
+
+function text(x: unknown): string {
+  if (typeof x === 'string') return x;
+  return '';
+}
+
+function asArray<T>(x: T | T[] | undefined | null): T[] {
+  if (!x) return [];
+  return Array.isArray(x) ? x : [x];
+}
+
+// Example id URL: http://arxiv.org/abs/2502.12345v2
+export function parseArxivId(idUrl: string): { arxivId: string; version: string } {
+  const m = idUrl.match(/arxiv\.org\/abs\/(.+)$/);
+  const tail = m?.[1] ?? idUrl;
+  const mv = tail.match(/^(?<id>\d{4}\.\d{4,5})(?<v>v\d+)?$/);
+  const arxivId = mv?.groups?.id ?? tail.replace(/v\d+$/, '');
+  const version = mv?.groups?.v ?? 'v1';
+  return { arxivId, version };
+}
+
+function normalizeTitle(t: string): string {
+  return t.replace(/\s+/g, ' ').trim();
+}
+
+function normalizeSummary(s: string): string {
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+export async function fetchAtom(category: string, maxResults = 200): Promise<string> {
+  const url = `https://export.arxiv.org/api/query?search_query=cat:${encodeURIComponent(category)}&start=0&max_results=${maxResults}&sortBy=lastUpdatedDate&sortOrder=descending`;
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'arxiv-coach (+https://github.com/mindofindica/arxiv-coach)',
+    },
+  });
+  if (!res.ok) throw new Error(`arXiv fetch failed for ${category}: ${res.status} ${res.statusText}`);
+  return await res.text();
+}
+
+export function parseAtom(xml: string): ArxivEntry[] {
+  const doc = parser.parse(xml);
+  const feed = doc?.feed;
+  const entries = asArray(feed?.entry);
+
+  return entries.map((e: any) => {
+    const rawIdUrl = text(e.id);
+    const { arxivId, version } = parseArxivId(rawIdUrl);
+
+    const authors = asArray(e.author).map((a: any) => normalizeTitle(text(a?.name))).filter(Boolean);
+
+    const categories = asArray(e.category)
+      .map((c: any) => text(c?.['@_term']))
+      .filter(Boolean);
+
+    const links = asArray(e.link);
+    const absUrl = links.map((l: any) => text(l?.['@_href'])).find((href) => href.includes('/abs/')) ?? null;
+    const pdfUrl = links.map((l: any) => ({ href: text(l?.['@_href']), type: text(l?.['@_type']) }))
+      .find((l) => l.type === 'application/pdf')?.href ?? null;
+
+    return {
+      arxivId,
+      version,
+      title: normalizeTitle(text(e.title)),
+      summary: normalizeSummary(text(e.summary)),
+      authors,
+      categories,
+      publishedAt: text(e.published),
+      updatedAt: text(e.updated),
+      pdfUrl,
+      absUrl,
+      rawIdUrl,
+    } satisfies ArxivEntry;
+  });
+}
+
+export function withinLastDays(iso: string, days: number, now = new Date()): boolean {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return false;
+  const windowMs = days * 24 * 60 * 60 * 1000;
+  return t >= now.getTime() - windowMs;
+}
