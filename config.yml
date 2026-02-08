@@ -14,8 +14,17 @@ discovery:
 
 storage:
   keepPdfsForever: true
-  root: data
+  root: /root/.openclaw/state/arxiv-coach
 
 limits:
   maxItemsPerDigest: 5
   maxPerTrackPerDay: 2
+
+rateLimiting:
+  apiMinDelayMs: 3000
+  apiJitterMs:
+    min: 3500
+    max: 6500
+  pdfJitterMs:
+    min: 1100
+    max: 2950

@@ -38,6 +38,17 @@ export interface AppConfig {
     maxItemsPerDigest: number;
     maxPerTrackPerDay: number;
   };
+  rateLimiting?: {
+    apiMinDelayMs?: number;
+    apiJitterMs?: {
+      min: number;
+      max: number;
+    };
+    pdfJitterMs?: {
+      min: number;
+      max: number;
+    };
+  };
 }
 
 export interface PaperRow {

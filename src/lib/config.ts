@@ -26,6 +26,19 @@ const AppConfigSchema = z.object({
     maxItemsPerDigest: z.number().int().min(1).max(50).default(5),
     maxPerTrackPerDay: z.number().int().min(1).max(10).default(2),
   }),
+  rateLimiting: z
+    .object({
+      apiMinDelayMs: z.number().int().min(0).default(3000),
+      apiJitterMs: z.object({
+        min: z.number().int().min(0).default(3500),
+        max: z.number().int().min(0).default(6500),
+      }).default({ min: 3500, max: 6500 }),
+      pdfJitterMs: z.object({
+        min: z.number().int().min(0).default(1100),
+        max: z.number().int().min(0).default(2950),
+      }).default({ min: 1100, max: 2950 }),
+    })
+    .optional(),
 });
 
 const TracksSchema = z.object({

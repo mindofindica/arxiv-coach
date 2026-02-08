@@ -23,3 +23,15 @@ storage:
 limits:
   maxItemsPerDigest: 5
   maxPerTrackPerDay: 2
+
+rateLimiting:
+  # Minimum spacing between arXiv API queries
+  apiMinDelayMs: 3000
+  # Additional jitter for arXiv API queries (keep both >= apiMinDelayMs for real jitter)
+  apiJitterMs:
+    min: 3500
+    max: 6500
+  # PDF downloads can be faster; keep as-is for now
+  pdfJitterMs:
+    min: 1100
+    max: 2950
