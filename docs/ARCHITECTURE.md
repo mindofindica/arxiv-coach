@@ -15,6 +15,7 @@ This tool is not a paper collector; it is a learning pipeline that creates daily
 
 ### Pipeline
 1. **Discover**: fetch Atom feeds for selected categories for the last N days.
+   - V0 cap: **100 results per category** (conservative / arXiv-friendly). Revisit if we miss too much.
 2. **Normalize**: parse entries into canonical `Paper` objects.
 3. **Match**: local scoring of title+abstract to tracks (deterministic).
 4. **Acquire**: download PDF, extract text to `.txt`.

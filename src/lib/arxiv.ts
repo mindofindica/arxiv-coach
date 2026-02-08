@@ -47,7 +47,9 @@ function normalizeSummary(s: string): string {
   return s.replace(/\s+/g, ' ').trim();
 }
 
-export async function fetchAtom(category: string, maxResults = 200): Promise<string> {
+// NOTE: default maxResults is intentionally conservative to be kind to arXiv.
+// If we need more coverage, make it configurable in config.yml.
+export async function fetchAtom(category: string, maxResults = 100): Promise<string> {
   const url = `https://export.arxiv.org/api/query?search_query=cat:${encodeURIComponent(category)}&start=0&max_results=${maxResults}&sortBy=lastUpdatedDate&sortOrder=descending`;
   const res = await fetch(url, {
     headers: {

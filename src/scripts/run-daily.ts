@@ -40,7 +40,7 @@ const stats = {
 
 try {
   for (const cat of config.discovery.categories) {
-    const xml = await fetchAtom(cat, 200);
+    const xml = await fetchAtom(cat, 100);
     const entries = parseAtom(xml);
     stats.fetchedEntries += entries.length;
 
@@ -60,7 +60,11 @@ try {
         }
 
         const m = matchTrack(track, entry.title, entry.summary);
-        if (m.score >= track.threshold && m.matchedTerms.length > 0) {
+
+        // Default behavior: if a paper meets the score threshold, we match it.
+        // In most cases matchedTerms will be non-empty, but we don't require it
+        // so we can still record borderline/edge cases and tune later.
+        if (m.score >= track.threshold) {
           upsertTrackMatch(db, entry.arxivId, track.name, m.score, m.matchedTerms);
           stats.trackMatches += 1;
         }
