@@ -7,6 +7,7 @@ import { ensureStorageRoot, listMatchedPapersMissingArtifacts, updatePdfSha, upd
 import { selectDailyByTrack } from '../digest/select.js';
 import { renderDailyMarkdown, renderHeaderSignalMessage, renderTrackSignalMessage } from '../digest/render.js';
 import { ensureDir, dailyDigestPath } from '../storage.js';
+import { hasDigestBeenSent } from '../notify/plan.js';
 import { fetchAtom, parseAtom, withinLastDays } from '../arxiv.js';
 import { matchTrack } from '../match.js';
 import { paperPaths } from '../storage.js';
@@ -206,6 +207,8 @@ export async function runDaily(opts: DailyRunOptions): Promise<DailyRunResult> {
       trackMessages: perTrack.map((m) => ({ track: m.track, truncated: m.truncated, chars: m.text.length })),
     };
 
+    const alreadySent = hasDigestBeenSent(db, dateIso);
+
     // Print in machine-readable form for the OpenClaw runner.
     console.log(JSON.stringify({
       kind: 'dailyDigest',
@@ -213,6 +216,7 @@ export async function runDaily(opts: DailyRunOptions): Promise<DailyRunResult> {
       digestPath,
       header: header.text,
       tracks: perTrack.map((m) => ({ track: m.track, message: m.text })),
+      alreadySent,
     }));
 
     const status: DailyRunResult['status'] = stats.discoveryErrors.length > 0 ? 'warn' : 'ok';
