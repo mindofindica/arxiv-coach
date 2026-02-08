@@ -13,9 +13,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "daily": "tsx src/scripts/run-daily.ts",
     "weekly": "tsx src/scripts/run-weekly.ts",
-    "explain": "tsx src/scripts/explain.ts"
+    "explain": "tsx src/scripts/explain.ts",
+    "init-db": "tsx src/scripts/init-db.ts"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.2.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
