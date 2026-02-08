@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -75,6 +75,18 @@ const tracksFile: TracksFile = {
 };
 
 describe('runDaily integration harness', () => {
+  const originalWarn = console.warn;
+  const originalError = console.error;
+
+  beforeAll(() => {
+    console.warn = () => {};
+    console.error = () => {};
+  });
+
+  afterAll(() => {
+    console.warn = originalWarn;
+    console.error = originalError;
+  });
   it('continues to artifact step on discovery 429 and marks warn', async () => {
     const storageRoot = mkTmpDir();
     const config = baseConfig(storageRoot);

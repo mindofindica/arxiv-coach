@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -69,6 +69,20 @@ async function importRunDailyWithMocks(mocks: {
 }
 
 describe('Integration: steps 1–3', () => {
+  // Many tests intentionally trigger warnings (e.g. disabled pdftotext, discovery failures).
+  // Silence console noise so CI output stays clean.
+  const originalWarn = console.warn;
+  const originalError = console.error;
+
+  beforeAll(() => {
+    console.warn = () => {};
+    console.error = () => {};
+  });
+
+  afterAll(() => {
+    console.warn = originalWarn;
+    console.error = originalError;
+  });
   it('Step1: DB migration smoke creates expected tables', () => {
     const storageRoot = mkTmpDir();
     const dbPath = path.join(storageRoot, 'db.sqlite');
