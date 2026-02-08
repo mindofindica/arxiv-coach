@@ -1,4 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Reduce politeness sleeps to keep tests fast
+vi.mock('../sleep.js', () => ({
+  sleep: () => Promise.resolve(),
+  jitter: () => 1,
+}));
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';

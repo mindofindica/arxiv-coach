@@ -43,6 +43,12 @@ vi.mock('../extract.js', () => {
   };
 });
 
+// Reduce politeness sleeps to keep tests fast
+vi.mock('../sleep.js', () => ({
+  sleep: () => Promise.resolve(),
+  jitter: () => 1,
+}));
+
 import { runDaily } from './daily.js';
 
 function mkTmpDir() {

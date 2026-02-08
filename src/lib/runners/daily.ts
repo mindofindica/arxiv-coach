@@ -87,7 +87,8 @@ export async function runDaily(opts: DailyRunOptions): Promise<DailyRunResult> {
   try {
     // --- Step 2: discovery + matching ---
     for (const cat of config.discovery.categories) {
-      await sleep(jitter(politenessJitterMs.min, politenessJitterMs.max));
+      // Enforce minimum 3s spacing between arXiv API calls (good citizen).
+      await sleep(Math.max(3000, jitter(politenessJitterMs.min, politenessJitterMs.max)));
 
       let xml: string;
       try {
