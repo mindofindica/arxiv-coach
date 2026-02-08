@@ -1,0 +1,100 @@
+# Track definitions (V0)
+# These are intentionally simple and deterministic.
+# We can refine scoring/thresholds once we see volume.
+
+tracks:
+  - name: Agents / Tool Use
+    enabled: true
+    categories: [cs.AI, cs.CL, cs.LG]
+    phrases:
+      - "tool use"
+      - "function calling"
+      - "api calling"
+      - "computer use"
+      - "web browsing"
+      - "workflow"
+    keywords:
+      - tool
+      - tools
+      - function
+      - calling
+      - executor
+      - actions
+    exclude: []
+    threshold: 3
+    maxPerDay: 2
+
+  - name: Agents / Planning
+    enabled: true
+    categories: [cs.AI, cs.CL]
+    phrases:
+      - "tree search"
+      - "planning"
+      - "task decomposition"
+      - "self-correction"
+      - "reflection"
+    keywords:
+      - planner
+      - plan
+      - planning
+      - trajectory
+      - search
+    exclude: []
+    threshold: 3
+    maxPerDay: 2
+
+  - name: Agents / Memory
+    enabled: true
+    categories: [cs.AI, cs.CL]
+    phrases:
+      - "long-term memory"
+      - "episodic memory"
+      - "memory augmentation"
+    keywords:
+      - memory
+      - retrieval
+      - store
+      - recall
+    exclude: []
+    threshold: 3
+    maxPerDay: 2
+
+  - name: Agent Evaluation & Reliability
+    enabled: true
+    categories: [cs.AI, cs.CL]
+    phrases:
+      - "agent evaluation"
+      - "tool benchmark"
+      - "reliability"
+      - "robustness"
+      - "failure modes"
+    keywords:
+      - eval
+      - benchmark
+      - reliability
+      - robust
+      - hallucination
+    exclude: []
+    threshold: 3
+    maxPerDay: 2
+
+  - name: RAG & Grounding
+    enabled: true
+    categories: [cs.CL, cs.IR, cs.AI]
+    phrases:
+      - "retrieval augmented"
+      - "grounded"
+      - "citation"
+      - "reranker"
+    keywords:
+      - retrieval
+      - rag
+      - rerank
+      - grounding
+      - citations
+    exclude: []
+    threshold: 3
+    maxPerDay: 2
+
+limits:
+  maxItemsPerDigest: 5

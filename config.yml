@@ -1,0 +1,21 @@
+timezone: Europe/Amsterdam
+schedule:
+  dailyDigestTime: "08:30"
+  weekly:
+    day: Sun
+    time: "11:00"
+
+discovery:
+  categories:
+    - cs.AI
+    - cs.CL
+    - cs.LG
+    - cs.IR
+
+storage:
+  keepPdfsForever: true
+  root: data
+
+limits:
+  maxItemsPerDigest: 5
+  maxPerTrackPerDay: 2
