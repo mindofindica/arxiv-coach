@@ -1,0 +1,14 @@
+# local runtime state
+config.yml
+config.local.yml
+
+# data (if someone uses in-repo storage)
+data/
+
+# logs
+*.log
+
+# node
+node_modules/
+
+dist/

@@ -1,0 +1,25 @@
+# Example config for arxiv-coach
+# Copy to config.yml and adjust.
+
+timezone: Europe/Amsterdam
+schedule:
+  dailyDigestTime: "08:30"
+  weekly:
+    day: Sun
+    time: "11:00"
+
+discovery:
+  categories:
+    - cs.AI
+    - cs.CL
+    - cs.LG
+    - cs.IR
+
+storage:
+  # Recommended: outside the repo
+  root: /root/.openclaw/state/arxiv-coach
+  keepPdfsForever: true
+
+limits:
+  maxItemsPerDigest: 5
+  maxPerTrackPerDay: 2
