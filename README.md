@@ -9,7 +9,7 @@ Personal arXiv → learning pipeline for Mikey (LLM engineering, agent-first).
 ## Goals
 
 - Daily 10-minute briefing: max 3–5 high-signal papers relevant to *agents/LLM engineering*.
-- Weekly deep dive: pick 1 paper, explain + connect to recent local corpus.
+- Weekly deep dive: pick 1 paper, explain + connect to recent local corpus. (V1 ✓)
 - Store PDFs forever + extract text for local search/explanations.
 - On-demand explanations: ELI12 / undergrad / engineer breakdown.
 
@@ -32,11 +32,37 @@ Personal arXiv → learning pipeline for Mikey (LLM engineering, agent-first).
 - `scripts/` — runnable entrypoints
 - `docs/` — design notes, ops, and future plans
 
-## Running (planned)
+## Running
 
-- Daily ingestion + digest: `node scripts/run-daily.mjs`
-- Weekly deep dive: `node scripts/run-weekly.mjs`
-- Explain: `node scripts/explain.mjs <arxivId> --level eli12|undergrad|engineer`
+### Daily Pipeline
+
+```bash
+npm run daily        # Full daily run: discovery + matching + artifacts
+npm run plan-daily   # Generate delivery plan JSON for cron agent
+npm run mark-sent    # Mark daily digest as sent (pass plan.json path)
+```
+
+### Weekly Deep Dive
+
+```bash
+npm run plan-weekly-shortlist              # Saturday: generate shortlist of top 3 papers
+npm run plan-weekly                        # Sunday: generate deep dive plan
+npm run mark-weekly-sent <week> <arxivId>  # Mark weekly as sent
+
+# With specific week:
+npm run plan-weekly-shortlist -- --week=2026-W07
+npm run plan-weekly -- --week=2026-W07
+```
+
+See [docs/WEEKLY.md](docs/WEEKLY.md) for full weekly feature documentation.
+
+### Other Commands
+
+```bash
+npm run init-db      # Initialize/migrate database
+npm run artifacts    # Fetch PDFs + extract text for matched papers
+npm run explain      # On-demand paper explanation (planned)
+```
 
 ## Scheduling
 

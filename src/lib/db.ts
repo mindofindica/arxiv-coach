@@ -6,7 +6,7 @@ export interface Db {
   sqlite: Database.Database;
 }
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 export function openDb(dbPath: string): Db {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -106,5 +106,23 @@ export function migrate(db: Db) {
 
     sqlite.prepare('UPDATE schema_meta SET version=?, updated_at=? WHERE id=1')
       .run(2, new Date().toISOString());
+  }
+
+  // v3 migration - weekly deep dive tracking
+  if (current <= 2) {
+    sqlite.exec(
+      `CREATE TABLE IF NOT EXISTS sent_weekly_digests (
+        week_iso TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        sent_at TEXT NOT NULL,
+        arxiv_id TEXT NOT NULL,
+        sections_json TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_sent_weekly_sent_at ON sent_weekly_digests(sent_at);
+      `
+    );
+
+    sqlite.prepare('UPDATE schema_meta SET version=?, updated_at=? WHERE id=1')
+      .run(3, new Date().toISOString());
   }
 }

@@ -19,7 +19,10 @@
     "prepare": "husky",
     "artifacts": "tsx src/scripts/fetch-artifacts.ts",
     "plan-daily": "tsx src/scripts/plan-daily.ts",
-    "mark-sent": "tsx src/scripts/mark-sent.ts"
+    "mark-sent": "tsx src/scripts/mark-sent.ts",
+    "plan-weekly-shortlist": "tsx src/scripts/plan-weekly-shortlist.ts",
+    "plan-weekly": "tsx src/scripts/plan-weekly.ts",
+    "mark-weekly-sent": "tsx src/scripts/mark-weekly-sent.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

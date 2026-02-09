@@ -4,6 +4,13 @@ import { ensureDir, paperPaths } from './storage.js';
 import type { ArxivEntry } from './arxiv.js';
 import type { Db } from './db.js';
 
+export interface MatchedPaper {
+  arxiv_id: string;
+  pdf_path: string;
+  txt_path: string;
+  meta_path: string;
+}
+
 export function ensureStorageRoot(config: AppConfig) {
   ensureDir(config.storage.root);
   ensureDir(path.join(config.storage.root, 'papers'));
@@ -69,4 +76,24 @@ export function upsertTrackMatch(db: Db, arxivId: string, trackName: string, sco
       matched_terms_json=excluded.matched_terms_json,
       matched_at=excluded.matched_at`
   ).run(arxivId, trackName, score, JSON.stringify(matchedTerms), now);
+}
+
+export function listMatchedPapersMissingArtifacts(db: Db, limit = 50): MatchedPaper[] {
+  // NOTE: we treat a missing file on disk as missing even if a path exists.
+  // We keep it simple here and do file existence checks in the caller.
+  return db.sqlite.prepare(
+    `SELECT DISTINCT p.arxiv_id, p.pdf_path, p.txt_path, p.meta_path
+     FROM papers p
+     JOIN track_matches tm ON tm.arxiv_id = p.arxiv_id
+     ORDER BY tm.matched_at DESC
+     LIMIT ?`
+  ).all(limit) as MatchedPaper[];
+}
+
+export function updatePdfSha(db: Db, arxivId: string, sha256: string) {
+  db.sqlite.prepare('UPDATE papers SET sha256_pdf=? WHERE arxiv_id=?').run(sha256, arxivId);
+}
+
+export function updateVersionSha(db: Db, arxivId: string, version: string, sha256: string) {
+  db.sqlite.prepare('UPDATE paper_versions SET pdf_sha256=? WHERE arxiv_id=? AND version=?').run(sha256, arxivId, version);
 }
