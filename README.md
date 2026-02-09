@@ -56,12 +56,34 @@ npm run plan-weekly -- --week=2026-W07
 
 See [docs/WEEKLY.md](docs/WEEKLY.md) for full weekly feature documentation.
 
+### On-Demand Explanations
+
+Get explanations of papers at different technical levels:
+
+```bash
+# By arxiv ID
+npm run explain -- "2602.06038" --level eli12
+
+# By title search  
+npm run explain -- "CommCP paper" --level undergrad
+
+# By digest reference
+npm run explain -- "#1 from today"
+npm run explain -- "#2 from yesterday" --level engineer
+```
+
+**Levels:**
+- `eli12` — Simple analogies, no jargon, for a smart 12-year-old
+- `undergrad` — Technical but explains concepts, some math OK
+- `engineer` — Full technical depth (default)
+
+See [docs/EXPLAIN.md](docs/EXPLAIN.md) for full documentation.
+
 ### Other Commands
 
 ```bash
 npm run init-db      # Initialize/migrate database
 npm run artifacts    # Fetch PDFs + extract text for matched papers
-npm run explain      # On-demand paper explanation (planned)
 ```
 
 ## Scheduling
