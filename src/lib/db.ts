@@ -6,7 +6,7 @@ export interface Db {
   sqlite: Database.Database;
 }
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 export function openDb(dbPath: string): Db {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -124,5 +124,24 @@ export function migrate(db: Db) {
 
     sqlite.prepare('UPDATE schema_meta SET version=?, updated_at=? WHERE id=1')
       .run(3, new Date().toISOString());
+  }
+
+  // v4 migration - LLM relevance scoring
+  if (current <= 3) {
+    sqlite.exec(
+      `CREATE TABLE IF NOT EXISTS llm_scores (
+        arxiv_id TEXT PRIMARY KEY,
+        relevance_score INTEGER NOT NULL CHECK (relevance_score BETWEEN 1 AND 5),
+        reasoning TEXT NOT NULL DEFAULT '',
+        model TEXT NOT NULL DEFAULT 'sonnet',
+        scored_at TEXT NOT NULL,
+        FOREIGN KEY (arxiv_id) REFERENCES papers(arxiv_id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_llm_scores_score ON llm_scores(relevance_score);
+      `
+    );
+
+    sqlite.prepare('UPDATE schema_meta SET version=?, updated_at=? WHERE id=1')
+      .run(4, new Date().toISOString());
   }
 }

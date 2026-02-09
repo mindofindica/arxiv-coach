@@ -10,6 +10,7 @@ export interface SelectedPaper {
   score: number;
   matchedTerms: string[];
   trackName: string;
+  llmScore: number | null;
 }
 
 export interface DailySelection {
@@ -30,16 +31,25 @@ export function selectDailyByTrack(db: Db, opts: { maxItemsPerDigest: number; ma
       p.title as title,
       p.abstract as abstract,
       p.updated_at as updatedAt,
-      p.meta_path as metaPath
+      p.meta_path as metaPath,
+      ls.relevance_score as llmScore
      FROM track_matches tm
      JOIN papers p ON p.arxiv_id = tm.arxiv_id
-     ORDER BY tm.score DESC, tm.matched_at DESC
+     LEFT JOIN llm_scores ls ON ls.arxiv_id = p.arxiv_id
+     ORDER BY
+       CASE WHEN ls.relevance_score IS NOT NULL THEN 0 ELSE 1 END,
+       COALESCE(ls.relevance_score, 0) DESC,
+       tm.score DESC,
+       tm.matched_at DESC
     `
   ).all() as Array<any>;
 
   const byTrack = new Map<string, SelectedPaper[]>();
 
   for (const r of rows) {
+    // Filter out papers with low LLM scores (noise filter)
+    if (r.llmScore !== null && r.llmScore <= 2) continue;
+
     if (!byTrack.has(r.trackName)) byTrack.set(r.trackName, []);
     const list = byTrack.get(r.trackName)!;
     if (list.length >= opts.maxPerTrack) continue;
@@ -64,6 +74,7 @@ export function selectDailyByTrack(db: Db, opts: { maxItemsPerDigest: number; ma
       score: r.score,
       matchedTerms: safeJsonArray(r.matchedTermsJson),
       trackName: r.trackName,
+      llmScore: r.llmScore ?? null,
     });
   }
 

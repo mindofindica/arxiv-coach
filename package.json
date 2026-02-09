@@ -22,7 +22,9 @@
     "mark-sent": "tsx src/scripts/mark-sent.ts",
     "plan-weekly-shortlist": "tsx src/scripts/plan-weekly-shortlist.ts",
     "plan-weekly": "tsx src/scripts/plan-weekly.ts",
-    "mark-weekly-sent": "tsx src/scripts/mark-weekly-sent.ts"
+    "mark-weekly-sent": "tsx src/scripts/mark-weekly-sent.ts",
+    "plan-score": "tsx src/scripts/plan-score.ts",
+    "record-scores": "tsx src/scripts/record-scores.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

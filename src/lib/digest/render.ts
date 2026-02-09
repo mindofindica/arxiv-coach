@@ -12,7 +12,10 @@ export function renderDailyMarkdown(dateIso: string, grouped: Map<string, Select
     for (const p of papers) {
       lines.push(`- **${p.title}**`);
       if (p.absUrl) lines.push(`  - ${p.absUrl}`);
-      lines.push(`  - score: ${p.score}${p.matchedTerms.length ? ` • matched: ${p.matchedTerms.join(', ')}` : ''}`);
+      const scoreParts: string[] = [`score: ${p.score}`];
+      if (p.llmScore !== null) scoreParts.push(`relevance: ${p.llmScore}/5`);
+      if (p.matchedTerms.length) scoreParts.push(`matched: ${p.matchedTerms.join(', ')}`);
+      lines.push(`  - ${scoreParts.join(' • ')}`);
       lines.push(`  - ${snippet(p.abstract)}`);
     }
     lines.push('');
@@ -29,7 +32,10 @@ export function renderTrackSignalMessage(track: string, papers: SelectedPaper[])
   for (const p of papers) {
     lines.push(`• ${p.title}`);
     if (p.absUrl) lines.push(`  ${p.absUrl}`);
-    if (p.matchedTerms.length) lines.push(`  matched: ${p.matchedTerms.join(', ')}`);
+    const metaParts: string[] = [];
+    if (p.llmScore !== null) metaParts.push(`relevance: ${p.llmScore}/5`);
+    if (p.matchedTerms.length) metaParts.push(`matched: ${p.matchedTerms.join(', ')}`);
+    if (metaParts.length) lines.push(`  ${metaParts.join(' • ')}`);
     lines.push(`  ${snippet(p.abstract, 260)}`);
     lines.push('');
   }

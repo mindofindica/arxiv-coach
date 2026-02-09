@@ -42,6 +42,17 @@ npm run plan-daily   # Generate delivery plan JSON for cron agent
 npm run mark-sent    # Mark daily digest as sent (pass plan.json path)
 ```
 
+### LLM Relevance Scoring
+
+Papers are scored 1-5 by Sonnet for actual relevance (not just keyword matches). Low-scoring papers (1-2) are filtered from digests.
+
+```bash
+npm run plan-score     # Generate scoring plan for cron agent
+npm run record-scores -- /path/to/scores.json  # Write scores to DB
+```
+
+See [docs/SCORING.md](docs/SCORING.md) for full documentation.
+
 ### Weekly Deep Dive
 
 ```bash
