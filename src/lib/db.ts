@@ -6,7 +6,7 @@ export interface Db {
   sqlite: Database.Database;
 }
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 export function openDb(dbPath: string): Db {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -143,5 +143,53 @@ export function migrate(db: Db) {
 
     sqlite.prepare('UPDATE schema_meta SET version=?, updated_at=? WHERE id=1')
       .run(4, new Date().toISOString());
+  }
+
+  // v5 migration - knowledge gaps tracking
+  if (current <= 4) {
+    sqlite.exec(
+      `CREATE TABLE IF NOT EXISTS knowledge_gaps (
+        id TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        concept TEXT NOT NULL,
+        context TEXT,
+        source_type TEXT NOT NULL,
+        source_id TEXT,
+        paper_title TEXT,
+        arxiv_id TEXT,
+        detection_method TEXT NOT NULL,
+        original_message TEXT,
+        status TEXT NOT NULL DEFAULT 'identified',
+        priority INTEGER DEFAULT 50,
+        lesson_generated_at TEXT,
+        lesson_sent_at TEXT,
+        marked_understood_at TEXT,
+        tags TEXT DEFAULT '[]'
+      );
+
+      CREATE TABLE IF NOT EXISTS learning_sessions (
+        id TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        gap_id TEXT NOT NULL REFERENCES knowledge_gaps(id) ON DELETE CASCADE,
+        lesson_type TEXT NOT NULL,
+        lesson_content TEXT NOT NULL,
+        lesson_format TEXT DEFAULT 'text',
+        delivered_via TEXT,
+        delivered_at TEXT DEFAULT (datetime('now')),
+        read INTEGER DEFAULT 0,
+        read_at TEXT,
+        feedback TEXT,
+        feedback_text TEXT,
+        generation_model TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_knowledge_gaps_status ON knowledge_gaps(status);
+      CREATE INDEX IF NOT EXISTS idx_knowledge_gaps_priority ON knowledge_gaps(priority);
+      CREATE INDEX IF NOT EXISTS idx_learning_sessions_gap_id ON learning_sessions(gap_id);
+      `
+    );
+
+    sqlite.prepare('UPDATE schema_meta SET version=?, updated_at=? WHERE id=1')
+      .run(5, new Date().toISOString());
   }
 }
