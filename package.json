@@ -24,7 +24,11 @@
     "plan-weekly": "tsx src/scripts/plan-weekly.ts",
     "mark-weekly-sent": "tsx src/scripts/mark-weekly-sent.ts",
     "plan-score": "tsx src/scripts/plan-score.ts",
-    "record-scores": "tsx src/scripts/record-scores.ts"
+    "record-scores": "tsx src/scripts/record-scores.ts",
+    "record-gap": "tsx src/scripts/record-gap.ts",
+    "list-gaps": "tsx src/scripts/list-gaps.ts",
+    "plan-gap-lessons": "tsx src/scripts/plan-gap-lessons.ts",
+    "mark-gap-lesson-sent": "tsx src/scripts/mark-gap-lesson-sent.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
