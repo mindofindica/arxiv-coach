@@ -1,488 +1,434 @@
 /**
  * Feedback Tracking CLI Commands
  * Proof-of-concept implementation for user feedback collection and analysis
- * 
- * Usage:
- *   arxiv-coach feedback read <paper-id>
- *   arxiv-coach feedback skip <paper-id> --reason "too theoretical"
- *   arxiv-coach feedback save <paper-id>
- *   arxiv-coach feedback summary --last 7d
- *   arxiv-coach feedback track-stats
+ *
+ * Usage (via tsx):
+ *   tsx src/commands/feedback.ts read <paper-id> [--notes "..."]
+ *   tsx src/commands/feedback.ts skip <paper-id> [--reason "too theoretical"]
+ *   tsx src/commands/feedback.ts save <paper-id> [--notes "..."] [--priority 5]
+ *   tsx src/commands/feedback.ts love <paper-id> [--notes "..."]
+ *   tsx src/commands/feedback.ts meh <paper-id>
+ *   tsx src/commands/feedback.ts summary [--last 7]
+ *   tsx src/commands/feedback.ts track-stats [--last 30]
+ *   tsx src/commands/feedback.ts reading-list [--status unread]
  */
 
-import { Command } from 'commander';
-import { getSupabaseClient } from '../lib/supabase.js';
-import chalk from 'chalk';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { loadConfig } from '../lib/config.js';
+import { openDb, type Db } from '../lib/db.js';
 
-interface PaperFeedback {
+// ── Helpers ────────────────────────────────────────────────────────────
+
+function getDb(): Db {
+  const repoRoot = path.resolve(process.cwd());
+  const config = loadConfig(repoRoot);
+  const dbPath = path.join(config.storage.root, 'db.sqlite');
+  const db = openDb(dbPath);
+  ensureFeedbackTables(db);
+  return db;
+}
+
+function ensureFeedbackTables(db: Db): void {
+  db.sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS user_interactions (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      interaction_type TEXT NOT NULL,
+      paper_id TEXT,
+      digest_id TEXT,
+      track_name TEXT,
+      command TEXT,
+      signal_strength INTEGER,
+      position_in_digest INTEGER,
+      time_since_digest_sent_sec INTEGER,
+      session_id TEXT,
+      metadata TEXT DEFAULT '{}'
+    );
+
+    CREATE TABLE IF NOT EXISTS paper_feedback (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      paper_id TEXT NOT NULL,
+      feedback_type TEXT NOT NULL,
+      reason TEXT,
+      tags TEXT DEFAULT '[]',
+      expected_track TEXT,
+      actual_interest_level INTEGER,
+      UNIQUE(paper_id, feedback_type)
+    );
+
+    CREATE TABLE IF NOT EXISTS track_performance (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      track_name TEXT NOT NULL,
+      week_start_date TEXT NOT NULL,
+      papers_sent INTEGER DEFAULT 0,
+      papers_viewed INTEGER DEFAULT 0,
+      papers_read INTEGER DEFAULT 0,
+      papers_skipped INTEGER DEFAULT 0,
+      papers_saved INTEGER DEFAULT 0,
+      papers_loved INTEGER DEFAULT 0,
+      avg_signal_strength REAL DEFAULT 0,
+      engagement_rate_pct REAL DEFAULT 0,
+      UNIQUE(track_name, week_start_date)
+    );
+
+    CREATE TABLE IF NOT EXISTS reading_list (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      paper_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'unread',
+      priority INTEGER DEFAULT 5,
+      notes TEXT,
+      read_at TEXT,
+      UNIQUE(paper_id)
+    );
+  `);
+}
+
+function uuid(): string {
+  return crypto.randomUUID();
+}
+
+function parseArgs(args: string[]): { positional: string[]; flags: Record<string, string> } {
+  const positional: string[] = [];
+  const flags: Record<string, string> = {};
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    if (arg.startsWith('--')) {
+      const key = arg.slice(2);
+      const next: string | undefined = args[i + 1];
+      if (next !== undefined && !next.startsWith('--')) {
+        flags[key] = next;
+        i++;
+      } else {
+        flags[key] = 'true';
+      }
+    } else {
+      positional.push(arg);
+    }
+  }
+  return { positional, flags };
+}
+
+// ── Paper resolution ───────────────────────────────────────────────────
+
+interface PaperRow {
   id: string;
-  paper_id: string;
-  feedback_type: string;
-  reason: string | null;
-  created_at: string;
+  title: string;
+  arxiv_id: string;
 }
 
-interface TrackPerformance {
-  track_name: string;
-  papers_sent: number;
-  papers_viewed: number;
-  papers_read: number;
-  engagement_rate: number;
-  quality_score: number;
-  recommendation: string;
+function resolvePaper(db: Db, identifier: string): PaperRow | null {
+  // Try as arxiv ID
+  if (/^\d{4}\.\d{4,5}(v\d+)?$/.test(identifier)) {
+    const row = db.sqlite
+      .prepare('SELECT id, title, arxiv_id FROM papers WHERE arxiv_id = ?')
+      .get(identifier) as PaperRow | undefined;
+    return row ?? null;
+  }
+
+  // Try as position (recent papers)
+  const pos = parseInt(identifier, 10);
+  if (!isNaN(pos) && pos > 0) {
+    const rows = db.sqlite
+      .prepare('SELECT id, title, arxiv_id FROM papers ORDER BY created_at DESC LIMIT ?')
+      .all(10) as PaperRow[];
+    return rows[pos - 1] ?? null;
+  }
+
+  // Try as UUID/id
+  const row = db.sqlite
+    .prepare('SELECT id, title, arxiv_id FROM papers WHERE id = ?')
+    .get(identifier) as PaperRow | undefined;
+  return row ?? null;
 }
 
-const feedbackCommand = new Command('feedback')
-  .description('Track and analyze paper engagement');
+// ── Feedback recording ─────────────────────────────────────────────────
 
-/**
- * Mark paper as read
- */
-feedbackCommand
-  .command('read <paper-id>')
-  .description('Mark a paper as read (strong positive signal)')
-  .option('-n, --notes <text>', 'Notes about what you learned')
-  .action(async (paperId: string, options) => {
-    await recordFeedback(paperId, 'read', options.notes, 8);
-  });
+const SIGNAL_STRENGTHS: Record<string, number> = {
+  love: 10,
+  read: 8,
+  save: 5,
+  meh: -2,
+  skip: -5,
+};
 
-/**
- * Skip paper (not interested)
- */
-feedbackCommand
-  .command('skip <paper-id>')
-  .description('Mark paper as skipped/not interested')
-  .option('-r, --reason <text>', 'Why skipping? (e.g., "too theoretical")')
-  .action(async (paperId: string, options) => {
-    await recordFeedback(paperId, 'skip', options.reason, -5);
-  });
-
-/**
- * Save paper for later
- */
-feedbackCommand
-  .command('save <paper-id>')
-  .description('Save paper to reading list')
-  .option('-n, --notes <text>', 'Why saving this paper?')
-  .option('-p, --priority <1-10>', 'Priority level (1-10)', '5')
-  .action(async (paperId: string, options) => {
-    const supabase = getSupabaseClient();
-    
-    try {
-      // Resolve paper ID (might be position or arxiv-id)
-      const paper = await resolvePaper(paperId);
-      if (!paper) {
-        console.error(chalk.red(`Paper not found: ${paperId}`));
-        process.exit(1);
-      }
-      
-      // Add to reading list
-      const { error } = await supabase
-        .rpc('add_to_reading_list', {
-          p_paper_id: paper.id,
-          p_notes: options.notes || null,
-          p_priority: parseInt(options.priority),
-        });
-      
-      if (error) throw error;
-      
-      // Also record feedback
-      await recordFeedback(paper.id, 'save', options.notes, 5, false);
-      
-      console.log(chalk.green('✓ Saved to reading list!'));
-      console.log(chalk.white(`  ${paper.title}`));
-      console.log(chalk.gray(`  Priority: ${options.priority}/10`));
-      
-    } catch (error) {
-      console.error(chalk.red('Error saving paper:'), error);
-      process.exit(1);
-    }
-  });
-
-/**
- * Mark paper as loved (exceptional)
- */
-feedbackCommand
-  .command('love <paper-id>')
-  .description('Mark paper as exceptional (strong positive)')
-  .option('-n, --notes <text>', 'What made this amazing?')
-  .action(async (paperId: string, options) => {
-    await recordFeedback(paperId, 'love', options.notes, 10);
-  });
-
-/**
- * Mark paper as "meh" (neutral/weak negative)
- */
-feedbackCommand
-  .command('meh <paper-id>')
-  .description('Paper was okay but not particularly useful')
-  .action(async (paperId: string, options) => {
-    await recordFeedback(paperId, 'meh', null, -2);
-  });
-
-/**
- * View engagement summary
- */
-feedbackCommand
-  .command('summary')
-  .description('View engagement summary')
-  .option('-l, --last <period>', 'Time period (7d, 30d, 90d)', '7d')
-  .action(async (options) => {
-    const supabase = getSupabaseClient();
-    
-    try {
-      const days = parseInt(options.last);
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-      
-      // Get interaction counts
-      const { data: interactions, error: intError } = await supabase
-        .from('user_interactions')
-        .select('paper_id, signal_strength, interaction_type')
-        .gte('created_at', since.toISOString());
-      
-      if (intError) throw intError;
-      
-      // Get feedback counts
-      const { data: feedbacks, error: fbError } = await supabase
-        .from('paper_feedback')
-        .select('feedback_type')
-        .gte('created_at', since.toISOString());
-      
-      if (fbError) throw fbError;
-      
-      // Calculate metrics
-      const uniquePapers = new Set(interactions?.map(i => i.paper_id) || []).size;
-      const totalInteractions = interactions?.length || 0;
-      const avgSignal = interactions?.reduce((sum, i) => sum + (i.signal_strength || 0), 0) / totalInteractions || 0;
-      
-      const feedbackCounts = (feedbacks || []).reduce((acc, f) => {
-        acc[f.feedback_type] = (acc[f.feedback_type] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-      
-      // Display summary
-      console.log(chalk.bold(`\n📊 Engagement Summary (last ${options.last})\n`));
-      
-      console.log(chalk.white('Overall Activity:'));
-      console.log(chalk.gray(`  Papers engaged with: ${uniquePapers}`));
-      console.log(chalk.gray(`  Total interactions: ${totalInteractions}`));
-      console.log(chalk.gray(`  Average signal: ${avgSignal.toFixed(1)}/10`));
-      console.log();
-      
-      console.log(chalk.white('Explicit Feedback:'));
-      if (Object.keys(feedbackCounts).length > 0) {
-        Object.entries(feedbackCounts).forEach(([type, count]) => {
-          const icon = 
-            type === 'love' ? '❤️' :
-            type === 'read' ? '✅' :
-            type === 'save' ? '⭐' :
-            type === 'skip' ? '⏭️' :
-            type === 'meh' ? '😐' : '📝';
-          console.log(chalk.gray(`  ${icon} ${type}: ${count}`));
-        });
-      } else {
-        console.log(chalk.yellow('  No explicit feedback yet. Try /feedback read|skip|save <paper-id>'));
-      }
-      console.log();
-      
-      // Top interests (from positive signals)
-      const positiveInteractions = interactions?.filter(i => (i.signal_strength || 0) > 5) || [];
-      if (positiveInteractions.length > 0) {
-        console.log(chalk.white('High Interest Areas:'));
-        console.log(chalk.gray('  (Based on papers you engaged deeply with)'));
-        // In real implementation, would extract topics from those papers
-        console.log(chalk.gray('  See track-stats for detailed breakdown'));
-      }
-      
-    } catch (error) {
-      console.error(chalk.red('Error generating summary:'), error);
-      process.exit(1);
-    }
-  });
-
-/**
- * View track performance statistics
- */
-feedbackCommand
-  .command('track-stats')
-  .description('View engagement by track')
-  .option('-l, --last <days>', 'Days to analyze', '30')
-  .action(async (options) => {
-    const supabase = getSupabaseClient();
-    
-    try {
-      // Query v_track_engagement view
-      const { data: trackStats, error } = await supabase
-        .from('v_track_engagement')
-        .select('*');
-      
-      if (error) throw error;
-      
-      if (!trackStats || trackStats.length === 0) {
-        console.log(chalk.yellow('No track data yet. Papers need to be sent first.'));
-        return;
-      }
-      
-      console.log(chalk.bold(`\n📈 Track Performance (last ${options.last} days)\n`));
-      
-      trackStats.forEach((track: any) => {
-        const engagementPct = track.engagement_rate_pct || 0;
-        const color = 
-          engagementPct >= 70 ? chalk.green :
-          engagementPct >= 40 ? chalk.yellow :
-          chalk.red;
-        
-        console.log(chalk.white.bold(track.track_name));
-        console.log(chalk.gray(`  Papers sent: ${track.papers_sent}`));
-        console.log(chalk.gray(`  Papers engaged: ${track.papers_engaged}`));
-        console.log(color(`  Engagement rate: ${engagementPct}%`));
-        
-        // Recommendations
-        if (engagementPct >= 70) {
-          console.log(chalk.green('  ✅ High value track - consider boosting'));
-        } else if (engagementPct < 25) {
-          console.log(chalk.red('  ⚠️  Low engagement - consider removing'));
-        } else if (engagementPct < 40) {
-          console.log(chalk.yellow('  ⚡ Needs tuning or reduced frequency'));
-        }
-        console.log();
-      });
-      
-    } catch (error) {
-      console.error(chalk.red('Error fetching track stats:'), error);
-      process.exit(1);
-    }
-  });
-
-/**
- * Manage reading list
- */
-const readingListCmd = feedbackCommand
-  .command('reading-list')
-  .description('Manage saved papers');
-
-readingListCmd
-  .command('show')
-  .description('Show reading list')
-  .option('-s, --status <status>', 'Filter by status (unread, in_progress, read)')
-  .option('-l, --limit <number>', 'Max results', '20')
-  .action(async (options) => {
-    const supabase = getSupabaseClient();
-    
-    try {
-      let query = supabase
-        .from('reading_list')
-        .select(`
-          id,
-          status,
-          priority,
-          notes,
-          created_at,
-          papers (
-            id,
-            arxiv_id,
-            title,
-            published_date
-          )
-        `)
-        .order('priority', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(parseInt(options.limit));
-      
-      if (options.status) {
-        query = query.eq('status', options.status);
-      } else {
-        // Default: show unread and in_progress
-        query = query.in('status', ['unread', 'in_progress']);
-      }
-      
-      const { data: items, error } = await query;
-      
-      if (error) throw error;
-      
-      if (!items || items.length === 0) {
-        console.log(chalk.yellow('Reading list is empty. Save papers with /feedback save <paper-id>'));
-        return;
-      }
-      
-      console.log(chalk.bold(`\n📚 Reading List (${items.length})\n`));
-      
-      items.forEach((item: any, idx: number) => {
-        const paper = item.papers;
-        const statusIcon = 
-          item.status === 'read' ? '✅' :
-          item.status === 'in_progress' ? '📖' :
-          '📄';
-        
-        console.log(chalk.gray(`${idx + 1}.`) + ' ' + statusIcon + ' ' + chalk.white.bold(paper.title));
-        console.log(chalk.gray(`   ArXiv: ${paper.arxiv_id} | Priority: ${item.priority}/10`));
-        
-        if (item.notes) {
-          console.log(chalk.gray(`   Notes: ${item.notes}`));
-        }
-        
-        console.log(chalk.gray(`   Saved: ${new Date(item.created_at).toLocaleDateString()}`));
-        console.log(chalk.gray(`   ID: ${paper.id}`));
-        console.log();
-      });
-      
-    } catch (error) {
-      console.error(chalk.red('Error fetching reading list:'), error);
-      process.exit(1);
-    }
-  });
-
-readingListCmd
-  .command('done <paper-id>')
-  .description('Mark reading list item as read')
-  .action(async (paperId: string) => {
-    const supabase = getSupabaseClient();
-    
-    try {
-      const paper = await resolvePaper(paperId);
-      if (!paper) {
-        console.error(chalk.red(`Paper not found: ${paperId}`));
-        process.exit(1);
-      }
-      
-      const { error } = await supabase
-        .from('reading_list')
-        .update({
-          status: 'read',
-          read_at: new Date().toISOString(),
-        })
-        .eq('paper_id', paper.id);
-      
-      if (error) throw error;
-      
-      console.log(chalk.green('✅ Marked as read!'));
-      console.log(chalk.gray(`  ${paper.title}`));
-      
-    } catch (error) {
-      console.error(chalk.red('Error updating reading list:'), error);
-      process.exit(1);
-    }
-  });
-
-/**
- * Helper: Record feedback
- */
-async function recordFeedback(
+function recordFeedback(
+  db: Db,
   paperId: string,
   feedbackType: string,
   reason: string | null,
-  signalStrength: number,
-  showOutput: boolean = true
-): Promise<void> {
-  const supabase = getSupabaseClient();
-  
-  try {
-    // Resolve paper (might be position like "3" or arxiv-id)
-    const paper = await resolvePaper(paperId);
-    if (!paper) {
-      console.error(chalk.red(`Paper not found: ${paperId}`));
-      process.exit(1);
-    }
-    
-    // Insert feedback
-    const { error: fbError } = await supabase
-      .from('paper_feedback')
-      .insert({
-        paper_id: paper.id,
-        feedback_type: feedbackType,
-        reason,
-      })
-      .select()
-      .single();
-    
-    if (fbError) {
-      // Handle unique constraint violation (already gave this feedback)
-      if (fbError.code === '23505') {
-        console.log(chalk.yellow(`Already marked as ${feedbackType}`));
-        return;
-      }
-      throw fbError;
-    }
-    
-    // Log interaction (this happens via trigger, but we can log explicitly too)
-    await supabase.rpc('log_interaction', {
-      p_paper_id: paper.id,
-      p_interaction_type: 'feedback_given',
-      p_command: feedbackType,
-      p_signal_strength: signalStrength,
-    });
-    
-    if (showOutput) {
-      const icon = 
-        feedbackType === 'love' ? '❤️' :
-        feedbackType === 'read' ? '✅' :
-        feedbackType === 'save' ? '⭐' :
-        feedbackType === 'skip' ? '⏭️' :
-        feedbackType === 'meh' ? '😐' : '📝';
-      
-      console.log(chalk.green(`${icon} Feedback recorded: ${feedbackType}`));
-      console.log(chalk.white(`  ${paper.title}`));
-      if (reason) {
-        console.log(chalk.gray(`  Reason: ${reason}`));
-      }
-      
-      // Contextual tip
-      if (feedbackType === 'skip' || feedbackType === 'meh') {
-        console.log(chalk.blue('  💡 System will deprioritize similar papers in future'));
-      } else if (feedbackType === 'read' || feedbackType === 'love') {
-        console.log(chalk.blue('  💡 System will boost similar papers in future'));
-      }
-    }
-    
-  } catch (error) {
-    console.error(chalk.red(`Error recording feedback:`), error);
+): void {
+  const paper = resolvePaper(db, paperId);
+  if (!paper) {
+    console.error(`Paper not found: ${paperId}`);
     process.exit(1);
   }
+
+  const signalStrength = SIGNAL_STRENGTHS[feedbackType] ?? 0;
+
+  // Insert feedback (ignore if duplicate)
+  const existing = db.sqlite
+    .prepare('SELECT id FROM paper_feedback WHERE paper_id = ? AND feedback_type = ?')
+    .get(paper.id, feedbackType) as { id: string } | undefined;
+
+  if (existing) {
+    console.log(`Already marked as ${feedbackType}`);
+    return;
+  }
+
+  db.sqlite
+    .prepare(
+      `INSERT INTO paper_feedback (id, paper_id, feedback_type, reason)
+       VALUES (?, ?, ?, ?)`,
+    )
+    .run(uuid(), paper.id, feedbackType, reason);
+
+  // Log interaction
+  db.sqlite
+    .prepare(
+      `INSERT INTO user_interactions (id, interaction_type, paper_id, command, signal_strength)
+       VALUES (?, 'feedback_given', ?, ?, ?)`,
+    )
+    .run(uuid(), paper.id, feedbackType, signalStrength);
+
+  const icons: Record<string, string> = {
+    love: '❤️',
+    read: '✅',
+    save: '⭐',
+    skip: '⏭️',
+    meh: '😐',
+  };
+
+  console.log(`${icons[feedbackType] ?? '📝'} Feedback recorded: ${feedbackType}`);
+  console.log(`  ${paper.title}`);
+  if (reason) console.log(`  Reason: ${reason}`);
+
+  if (feedbackType === 'skip' || feedbackType === 'meh') {
+    console.log('  💡 System will deprioritize similar papers in future');
+  } else if (feedbackType === 'read' || feedbackType === 'love') {
+    console.log('  💡 System will boost similar papers in future');
+  }
 }
 
-/**
- * Helper: Resolve paper by ID, arxiv-id, or position
- */
-async function resolvePaper(identifier: string): Promise<any> {
-  const supabase = getSupabaseClient();
-  
-  // Try as UUID first
-  if (identifier.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-    const { data } = await supabase
-      .from('papers')
-      .select('id, title, arxiv_id')
-      .eq('id', identifier)
-      .single();
-    return data;
-  }
-  
-  // Try as arXiv ID
-  if (identifier.match(/^\d{4}\.\d{4,5}(v\d+)?$/)) {
-    const { data } = await supabase
-      .from('papers')
-      .select('id, title, arxiv_id')
-      .eq('arxiv_id', identifier)
-      .single();
-    return data;
-  }
-  
-  // Try as position (e.g., "3" = third paper in recent digest)
-  const position = parseInt(identifier);
-  if (!isNaN(position) && position > 0) {
-    // Get recent papers from last digest
-    const { data: papers } = await supabase
-      .from('papers')
-      .select('id, title, arxiv_id')
-      .order('created_at', { ascending: false })
-      .limit(10);
-    
-    if (papers && papers[position - 1]) {
-      return papers[position - 1];
+// ── Commands ───────────────────────────────────────────────────────────
+
+function cmdFeedback(db: Db, type: string, paperId: string, flags: Record<string, string>): void {
+  const reason = flags.reason ?? flags.notes ?? null;
+  recordFeedback(db, paperId, type, reason);
+
+  // If save, also add to reading list
+  if (type === 'save') {
+    const paper = resolvePaper(db, paperId);
+    if (paper) {
+      const priority = parseInt(flags.priority ?? '5', 10);
+      const existing = db.sqlite
+        .prepare('SELECT id FROM reading_list WHERE paper_id = ?')
+        .get(paper.id) as { id: string } | undefined;
+
+      if (!existing) {
+        db.sqlite
+          .prepare(
+            `INSERT INTO reading_list (id, paper_id, priority, notes) VALUES (?, ?, ?, ?)`,
+          )
+          .run(uuid(), paper.id, priority, flags.notes ?? null);
+        console.log(`  📚 Added to reading list (priority ${priority}/10)`);
+      }
     }
   }
-  
-  return null;
 }
 
-export default feedbackCommand;
+interface FeedbackRow {
+  feedback_type: string;
+}
+
+interface InteractionRow {
+  paper_id: string | null;
+  signal_strength: number | null;
+}
+
+function cmdSummary(db: Db, flags: Record<string, string>): void {
+  const days = parseInt(flags.last ?? '7', 10);
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  const sinceIso = since.toISOString();
+
+  const interactions = db.sqlite
+    .prepare('SELECT paper_id, signal_strength FROM user_interactions WHERE created_at >= ?')
+    .all(sinceIso) as InteractionRow[];
+
+  const feedbacks = db.sqlite
+    .prepare('SELECT feedback_type FROM paper_feedback WHERE created_at >= ?')
+    .all(sinceIso) as FeedbackRow[];
+
+  const uniquePapers = new Set(interactions.filter((i) => i.paper_id).map((i) => i.paper_id)).size;
+  const totalInteractions = interactions.length;
+  const avgSignal =
+    totalInteractions > 0
+      ? interactions.reduce((sum, i) => sum + (i.signal_strength ?? 0), 0) / totalInteractions
+      : 0;
+
+  const feedbackCounts: Record<string, number> = {};
+  for (const f of feedbacks) {
+    feedbackCounts[f.feedback_type] = (feedbackCounts[f.feedback_type] ?? 0) + 1;
+  }
+
+  console.log(`\n📊 Engagement Summary (last ${days} days)\n`);
+  console.log('Overall Activity:');
+  console.log(`  Papers engaged with: ${uniquePapers}`);
+  console.log(`  Total interactions: ${totalInteractions}`);
+  console.log(`  Average signal: ${avgSignal.toFixed(1)}/10`);
+  console.log();
+
+  console.log('Explicit Feedback:');
+  const icons: Record<string, string> = {
+    love: '❤️',
+    read: '✅',
+    save: '⭐',
+    skip: '⏭️',
+    meh: '😐',
+  };
+
+  if (Object.keys(feedbackCounts).length > 0) {
+    for (const [type, count] of Object.entries(feedbackCounts)) {
+      console.log(`  ${icons[type] ?? '📝'} ${type}: ${count}`);
+    }
+  } else {
+    console.log('  No explicit feedback yet.');
+  }
+}
+
+interface TrackRow {
+  track_name: string;
+  papers_sent: number;
+  papers_read: number;
+  papers_skipped: number;
+  engagement_rate_pct: number;
+}
+
+function cmdTrackStats(db: Db, _flags: Record<string, string>): void {
+  const stats = db.sqlite
+    .prepare('SELECT * FROM track_performance ORDER BY engagement_rate_pct DESC')
+    .all() as TrackRow[];
+
+  if (stats.length === 0) {
+    console.log('No track data yet.');
+    return;
+  }
+
+  console.log('\n📈 Track Performance\n');
+
+  for (const track of stats) {
+    console.log(track.track_name);
+    console.log(`  Papers sent: ${track.papers_sent}`);
+    console.log(`  Papers read: ${track.papers_read}`);
+    console.log(`  Engagement rate: ${track.engagement_rate_pct}%`);
+
+    if (track.engagement_rate_pct >= 70) {
+      console.log('  ✅ High value track - consider boosting');
+    } else if (track.engagement_rate_pct < 25) {
+      console.log('  ⚠️  Low engagement - consider removing');
+    }
+    console.log();
+  }
+}
+
+interface ReadingListRow {
+  id: string;
+  paper_id: string;
+  status: string;
+  priority: number;
+  notes: string | null;
+  created_at: string;
+  title: string | null;
+  arxiv_id: string | null;
+}
+
+function cmdReadingList(db: Db, flags: Record<string, string>): void {
+  const status = flags.status;
+  const limit = parseInt(flags.limit ?? '20', 10);
+
+  let sql = `SELECT rl.*, p.title, p.arxiv_id
+    FROM reading_list rl
+    LEFT JOIN papers p ON rl.paper_id = p.id`;
+  const params: unknown[] = [];
+
+  if (status) {
+    sql += ' WHERE rl.status = ?';
+    params.push(status);
+  } else {
+    sql += " WHERE rl.status IN ('unread', 'in_progress')";
+  }
+
+  sql += ' ORDER BY rl.priority DESC, rl.created_at DESC LIMIT ?';
+  params.push(limit);
+
+  const items = db.sqlite.prepare(sql).all(...params) as ReadingListRow[];
+
+  if (items.length === 0) {
+    console.log('Reading list is empty.');
+    return;
+  }
+
+  const statusIcons: Record<string, string> = {
+    read: '✅',
+    in_progress: '📖',
+    unread: '📄',
+  };
+
+  console.log(`\n📚 Reading List (${items.length})\n`);
+
+  items.forEach((item, idx) => {
+    const icon = statusIcons[item.status] ?? '📄';
+    console.log(`${idx + 1}. ${icon} ${item.title ?? 'Unknown'}`);
+    console.log(`   ArXiv: ${item.arxiv_id ?? 'N/A'} | Priority: ${item.priority}/10`);
+    if (item.notes) console.log(`   Notes: ${item.notes}`);
+    console.log(`   Saved: ${item.created_at}`);
+    console.log();
+  });
+}
+
+// ── Main ───────────────────────────────────────────────────────────────
+
+const rawArgs = process.argv.slice(2);
+const { positional, flags } = parseArgs(rawArgs);
+const command = positional[0];
+
+if (!command) {
+  console.log(
+    'Usage: tsx src/commands/feedback.ts <read|skip|save|love|meh|summary|track-stats|reading-list> [args] [--flags]',
+  );
+  process.exit(0);
+}
+
+const db = getDb();
+
+switch (command) {
+  case 'read':
+  case 'skip':
+  case 'save':
+  case 'love':
+  case 'meh': {
+    const paperId = positional[1];
+    if (!paperId) {
+      console.error(`Usage: feedback ${command} <paper-id>`);
+      process.exit(1);
+    }
+    cmdFeedback(db, command, paperId, flags);
+    break;
+  }
+  case 'summary':
+    cmdSummary(db, flags);
+    break;
+  case 'track-stats':
+    cmdTrackStats(db, flags);
+    break;
+  case 'reading-list':
+    cmdReadingList(db, flags);
+    break;
+  default:
+    console.error(`Unknown command: ${command}`);
+    process.exit(1);
+}
