@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { parseArxivId, parseAtom, withinLastDays } from './arxiv.js';
+import { describe, expect, it, vi, afterEach } from 'vitest';
+import { parseArxivId, parseAtom, withinLastDays, fetchAtom } from './arxiv.js';
 
 describe('parseArxivId', () => {
   it('parses canonical id and version', () => {
@@ -22,6 +22,51 @@ describe('withinLastDays', () => {
   it('excludes timestamps outside window', () => {
     const now = new Date('2026-02-08T12:00:00Z');
     expect(withinLastDays('2026-02-01T12:00:00Z', 3, now)).toBe(false);
+  });
+});
+
+describe('fetchAtom', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns text on success', async () => {
+    const mockXml = '<feed><entry></entry></feed>';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => mockXml,
+    }));
+    const result = await fetchAtom('cs.AI', 1);
+    expect(result).toBe(mockXml);
+  });
+
+  it('throws on non-retryable HTTP error (4xx)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      statusText: 'Bad Request',
+    }));
+    await expect(fetchAtom('cs.AI', 1)).rejects.toThrow('400 Bad Request');
+  });
+
+  it('retries on timeout (AbortError): succeeds on second attempt', async () => {
+    // This test validates the core fix: AbortError (from AbortSignal.timeout) is
+    // caught, treated as retryable, and the function retries successfully.
+    const abortErr = new DOMException('signal timed out', 'TimeoutError');
+    const mockXml = '<feed></feed>';
+    const mockFetch = vi.fn()
+      .mockRejectedValueOnce(abortErr) // first attempt: times out
+      .mockResolvedValueOnce({ ok: true, text: async () => mockXml }); // retry: success
+    vi.stubGlobal('fetch', mockFetch);
+    // Use fake timers so the backoff sleep doesn't block the test
+    vi.useFakeTimers();
+    const resultPromise = fetchAtom('cs.AI', 1);
+    // Flush the async retry queue (setTimeout backoff → next fetch attempt)
+    await vi.runAllTimersAsync();
+    const result = await resultPromise;
+    vi.useRealTimers();
+    expect(result).toBe(mockXml);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 });
 

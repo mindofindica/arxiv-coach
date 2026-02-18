@@ -55,12 +55,29 @@ export async function fetchAtom(category: string, maxResults = 100): Promise<str
   // Be polite + resilient: retry on transient failures (esp. 429 rate limiting).
   // NOTE: We keep this conservative to avoid hammering arXiv.
   const maxAttempts = 5;
+  const FETCH_TIMEOUT_MS = 30_000; // 30s per attempt — prevents indefinite hang on slow arXiv
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'arxiv-coach (+https://github.com/mindofindica/arxiv-coach)',
-      },
-    });
+    // AbortSignal.timeout available in Node 18+; gives a hard timeout per request
+    const signal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        signal,
+        headers: {
+          'User-Agent': 'arxiv-coach (+https://github.com/mindofindica/arxiv-coach)',
+        },
+      });
+    } catch (err) {
+      // Timeout (AbortError) or network error — treat as retryable
+      if (attempt === maxAttempts) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new Error(`arXiv fetch failed for ${category} (attempt ${attempt}): ${msg}`);
+      }
+      const base = Math.min(60_000, 1000 * 2 ** (attempt - 1));
+      const waitMs = Math.floor(base * (0.75 + Math.random() * 0.75));
+      await new Promise((r) => setTimeout(r, waitMs));
+      continue;
+    }
 
     if (res.ok) return await res.text();
 
