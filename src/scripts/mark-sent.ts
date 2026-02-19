@@ -18,6 +18,7 @@ const plan = JSON.parse(fs.readFileSync(planPath, 'utf8')) as {
   header: string;
   tracks: Array<{ track: string; message: string }>;
   digestPath: string;
+  papers?: Array<{ arxivId: string; trackName: string }>;
 };
 
 const db = openDb(path.join(config.storage.root, 'db.sqlite'));
@@ -28,6 +29,7 @@ markDigestSent(db, {
   header: plan.header,
   tracks: plan.tracks,
   digestPath: plan.digestPath,
+  papers: plan.papers,
 });
 
 console.log(`Marked sent: ${plan.dateIso}`);
