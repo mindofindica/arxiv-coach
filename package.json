@@ -28,7 +28,8 @@
     "record-gap": "tsx src/scripts/record-gap.ts",
     "list-gaps": "tsx src/scripts/list-gaps.ts",
     "plan-gap-lessons": "tsx src/scripts/plan-gap-lessons.ts",
-    "mark-gap-lesson-sent": "tsx src/scripts/mark-gap-lesson-sent.ts"
+    "mark-gap-lesson-sent": "tsx src/scripts/mark-gap-lesson-sent.ts",
+    "handle-feedback": "tsx src/scripts/handle-feedback.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
