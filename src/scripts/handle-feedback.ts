@@ -5,21 +5,37 @@
  * Reads a Signal message from argv or stdin, parses it for arxiv feedback
  * commands, records to SQLite, and outputs a JSON result.
  *
+ * Supported commands:
+ *   /read 2403.12345           — mark as read (signal +8)
+ *   /skip 2403.12345           — deprioritise (signal -5)
+ *   /save 2403.12345           — add to reading list (signal +5)
+ *   /love 2403.12345           — strong positive (signal +10)
+ *   /meh 2403.12345            — weak signal (-2)
+ *   /reading-list              — show unread saved papers (default: 5)
+ *   /reading-list --status all --limit 10
+ *
+ * All feedback commands support optional flags (Signal-safe unquoted form):
+ *   --notes interesting ML approach    (captured as full multi-word string)
+ *   --reason too theoretical for now   (same)
+ *   --priority 7                       (for /save, 1-10)
+ *
  * Usage:
  *   tsx src/scripts/handle-feedback.ts "/read 2403.12345"
- *   echo "/save 2501.98765 --notes 'Great paper'" | tsx src/scripts/handle-feedback.ts
+ *   tsx src/scripts/handle-feedback.ts "/reading-list"
+ *   echo "/save 2501.98765 --notes great dataset" | tsx src/scripts/handle-feedback.ts
  *
  * Output (JSON on stdout):
  *   { "shouldReply": true, "wasCommand": true, "reply": "✅ Read: ...", "arxivId": "2403.12345" }
+ *   { "shouldReply": true, "wasCommand": true, "reply": "📚 Reading list..." }
  *   { "shouldReply": false, "wasCommand": false }
  *
  * Exit codes:
  *   0 — success (even if not a command or paper not found)
  *   1 — fatal error (db init failure, missing config, etc.)
  *
- * Integration with OpenClaw cron:
- *   The cron agent calls this script with the incoming Signal message text.
- *   If shouldReply=true, the agent sends `reply` back to Mikey on Signal.
+ * Integration with OpenClaw HEARTBEAT:
+ *   The main session handles incoming Signal messages matching /read /skip /save /love /meh /reading-list.
+ *   If shouldReply=true, Indica sends `reply` back to Mikey on Signal.
  */
 
 import path from 'node:path';
