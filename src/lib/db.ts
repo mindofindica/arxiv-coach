@@ -6,7 +6,7 @@ export interface Db {
   sqlite: Database.Database;
 }
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 export function openDb(dbPath: string): Db {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -191,5 +191,25 @@ export function migrate(db: Db) {
 
     sqlite.prepare('UPDATE schema_meta SET version=?, updated_at=? WHERE id=1')
       .run(5, new Date().toISOString());
+  }
+
+  // v6 migration - per-paper digest tracking (dedup)
+  if (current <= 5) {
+    sqlite.exec(
+      `CREATE TABLE IF NOT EXISTS digest_papers (
+        arxiv_id TEXT NOT NULL,
+        digest_date TEXT NOT NULL,
+        track_name TEXT NOT NULL,
+        sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (arxiv_id, digest_date),
+        FOREIGN KEY (arxiv_id) REFERENCES papers(arxiv_id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_digest_papers_arxiv_id ON digest_papers(arxiv_id);
+      CREATE INDEX IF NOT EXISTS idx_digest_papers_digest_date ON digest_papers(digest_date);
+      `
+    );
+
+    sqlite.prepare('UPDATE schema_meta SET version=?, updated_at=? WHERE id=1')
+      .run(6, new Date().toISOString());
   }
 }

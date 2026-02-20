@@ -5,6 +5,8 @@ export interface DigestMessagePlan {
   header: string;
   tracks: Array<{ track: string; message: string }>;
   digestPath: string;
+  // Optional: list of papers included in this digest for dedup tracking
+  papers?: Array<{ arxivId: string; trackName: string }>;
 }
 
 export function hasDigestBeenSent(db: Db, dateIso: string): boolean {
@@ -13,8 +15,26 @@ export function hasDigestBeenSent(db: Db, dateIso: string): boolean {
 }
 
 export function markDigestSent(db: Db, plan: DigestMessagePlan) {
-  db.sqlite.prepare(
+  const sentAt = new Date().toISOString();
+
+  const insertDigest = db.sqlite.prepare(
     `INSERT OR REPLACE INTO sent_digests (digest_date, kind, sent_at, header_text, tracks_json)
      VALUES (?, 'daily', ?, ?, ?)`
-  ).run(plan.dateIso, new Date().toISOString(), plan.header, JSON.stringify(plan.tracks));
+  );
+
+  const insertPaper = db.sqlite.prepare(
+    `INSERT OR IGNORE INTO digest_papers (arxiv_id, digest_date, track_name, sent_at)
+     VALUES (?, ?, ?, ?)`
+  );
+
+  const tx = db.sqlite.transaction(() => {
+    insertDigest.run(plan.dateIso, sentAt, plan.header, JSON.stringify(plan.tracks));
+    if (plan.papers) {
+      for (const p of plan.papers) {
+        insertPaper.run(p.arxivId, plan.dateIso, p.trackName, sentAt);
+      }
+    }
+  });
+
+  tx();
 }

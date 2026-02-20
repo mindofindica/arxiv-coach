@@ -209,11 +209,20 @@ export async function runDaily(opts: DailyRunOptions): Promise<DailyRunResult> {
 
     const alreadySent = hasDigestBeenSent(db, dateIso);
 
+    // Build flat paper list for digest_papers dedup tracking
+    const digestPapers: Array<{ arxivId: string; trackName: string }> = [];
+    for (const [trackName, papers] of selection.byTrack.entries()) {
+      for (const p of papers) {
+        digestPapers.push({ arxivId: p.arxivId, trackName });
+      }
+    }
+
     const digestPlan = {
       dateIso,
       digestPath,
       header: header.text,
       tracks: perTrack.map((m) => ({ track: m.track, message: m.text })),
+      papers: digestPapers,
       alreadySent,
       items: selection.totals.items,
       tracksWithItems: selection.totals.tracksWithItems,

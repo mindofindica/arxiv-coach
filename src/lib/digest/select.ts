@@ -21,7 +21,9 @@ export interface DailySelection {
   };
 }
 
-export function selectDailyByTrack(db: Db, opts: { maxItemsPerDigest: number; maxPerTrack: number }): DailySelection {
+export function selectDailyByTrack(db: Db, opts: { maxItemsPerDigest: number; maxPerTrack: number; dedupDays?: number }): DailySelection {
+  // Exclude papers already sent within dedupDays (default: 7 days)
+  const dedupDays = opts.dedupDays ?? 7;
   const rows = db.sqlite.prepare(
     `SELECT
       tm.track_name as trackName,
@@ -36,13 +38,18 @@ export function selectDailyByTrack(db: Db, opts: { maxItemsPerDigest: number; ma
      FROM track_matches tm
      JOIN papers p ON p.arxiv_id = tm.arxiv_id
      LEFT JOIN llm_scores ls ON ls.arxiv_id = p.arxiv_id
+     WHERE NOT EXISTS (
+       SELECT 1 FROM digest_papers dp
+       WHERE dp.arxiv_id = p.arxiv_id
+         AND dp.digest_date >= date('now', ? || ' days')
+     )
      ORDER BY
        CASE WHEN ls.relevance_score IS NOT NULL THEN 0 ELSE 1 END,
        COALESCE(ls.relevance_score, 0) DESC,
        tm.score DESC,
        tm.matched_at DESC
     `
-  ).all() as Array<any>;
+  ).all(`-${dedupDays}`) as Array<any>;
 
   const byTrack = new Map<string, SelectedPaper[]>();
 
