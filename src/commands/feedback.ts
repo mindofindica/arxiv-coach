@@ -115,34 +115,39 @@ function parseArgs(args: string[]): { positional: string[]; flags: Record<string
 // ── Paper resolution ───────────────────────────────────────────────────
 
 interface PaperRow {
-  id: string;
+  id: string; // alias for arxiv_id (papers table uses arxiv_id as PK, not a UUID id)
   title: string;
   arxiv_id: string;
 }
 
 function resolvePaper(db: Db, identifier: string): PaperRow | null {
-  // Try as arxiv ID
-  if (/^\d{4}\.\d{4,5}(v\d+)?$/.test(identifier)) {
+  // Normalise arxiv ID prefix (strip "arxiv:" prefix or full URL)
+  let resolved = identifier
+    .replace(/^arxiv:/i, '')
+    .replace(/^https?:\/\/arxiv\.org\/abs\//i, '')
+    .replace(/v\d+$/, '');
+
+  // Try as arxiv ID (XXXX.XXXXX format)
+  if (/^\d{4}\.\d{4,5}$/.test(resolved)) {
     const row = db.sqlite
-      .prepare('SELECT id, title, arxiv_id FROM papers WHERE arxiv_id = ?')
-      .get(identifier) as PaperRow | undefined;
-    return row ?? null;
+      .prepare('SELECT arxiv_id, title FROM papers WHERE arxiv_id = ?')
+      .get(resolved) as { arxiv_id: string; title: string } | undefined;
+    if (row) return { id: row.arxiv_id, arxiv_id: row.arxiv_id, title: row.title };
+    return null;
   }
 
-  // Try as position (recent papers)
+  // Try as position (recent papers by ingestion order)
   const pos = parseInt(identifier, 10);
   if (!isNaN(pos) && pos > 0) {
     const rows = db.sqlite
-      .prepare('SELECT id, title, arxiv_id FROM papers ORDER BY created_at DESC LIMIT ?')
-      .all(10) as PaperRow[];
-    return rows[pos - 1] ?? null;
+      .prepare('SELECT arxiv_id, title FROM papers ORDER BY ingested_at DESC LIMIT ?')
+      .all(10) as Array<{ arxiv_id: string; title: string }>;
+    const row = rows[pos - 1];
+    if (row) return { id: row.arxiv_id, arxiv_id: row.arxiv_id, title: row.title };
+    return null;
   }
 
-  // Try as UUID/id
-  const row = db.sqlite
-    .prepare('SELECT id, title, arxiv_id FROM papers WHERE id = ?')
-    .get(identifier) as PaperRow | undefined;
-  return row ?? null;
+  return null;
 }
 
 // ── Feedback recording ─────────────────────────────────────────────────
@@ -352,7 +357,7 @@ function cmdReadingList(db: Db, flags: Record<string, string>): void {
 
   let sql = `SELECT rl.*, p.title, p.arxiv_id
     FROM reading_list rl
-    LEFT JOIN papers p ON rl.paper_id = p.id`;
+    LEFT JOIN papers p ON rl.paper_id = p.arxiv_id`;
   const params: unknown[] = [];
 
   if (status) {
