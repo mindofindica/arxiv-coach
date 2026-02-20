@@ -138,12 +138,12 @@ export function recordFeedback(opts: RecordOptions): RecordResult {
       }
     }
 
-    // If /read and paper is in reading list as unread, mark in_progress
+    // If /read and paper is in reading list, mark as read (with timestamp)
     if (feedbackType === 'read') {
       db.sqlite
         .prepare(
-          `UPDATE reading_list SET status = 'in_progress'
-           WHERE paper_id = ? AND status = 'unread'`,
+          `UPDATE reading_list SET status = 'read', read_at = datetime('now')
+           WHERE paper_id = ? AND status IN ('unread', 'in_progress')`,
         )
         .run(arxivId);
     }

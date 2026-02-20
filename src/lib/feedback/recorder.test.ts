@@ -122,7 +122,7 @@ describe('recordFeedback', () => {
     expect(row?.priority).toBe(5);
   });
 
-  it('promotes reading_list status to in_progress on /read', () => {
+  it('marks reading_list status as read (with read_at) on /read', () => {
     seedPaper(db, '2403.12345');
     // Save first (adds to reading list as 'unread')
     recordFeedback({ db, arxivId: '2403.12345', feedbackType: 'save' });
@@ -130,10 +130,26 @@ describe('recordFeedback', () => {
     recordFeedback({ db, arxivId: '2403.12345', feedbackType: 'read' });
 
     const row = db.sqlite
+      .prepare('SELECT status, read_at FROM reading_list WHERE paper_id = ?')
+      .get('2403.12345') as { status: string; read_at: string | null } | undefined;
+
+    expect(row?.status).toBe('read');
+    expect(row?.read_at).toBeTruthy();
+  });
+
+  it('/read marks in_progress reading_list items as read too', () => {
+    seedPaper(db, '2403.12345');
+    // Manually insert in_progress entry
+    db.sqlite
+      .prepare(`INSERT INTO reading_list (id, paper_id, status) VALUES ('rl-1', '2403.12345', 'in_progress')`)
+      .run();
+    recordFeedback({ db, arxivId: '2403.12345', feedbackType: 'read' });
+
+    const row = db.sqlite
       .prepare('SELECT status FROM reading_list WHERE paper_id = ?')
       .get('2403.12345') as { status: string } | undefined;
 
-    expect(row?.status).toBe('in_progress');
+    expect(row?.status).toBe('read');
   });
 
   it('stores notes in metadata', () => {
