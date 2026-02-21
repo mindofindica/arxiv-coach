@@ -40,6 +40,234 @@ export interface HandleResult {
   arxivId?: string;
 }
 
+// ── Status snapshot ────────────────────────────────────────────────────────
+
+interface DigestRow {
+  sent_at: string | null;
+  paper_count: number;
+  track_name: string | null;
+}
+
+interface StatusSnapshot {
+  papersTotal: number;
+  papersThisWeek: number;
+  lastDigestAt: string | null;
+  lastDigestCount: number;
+  readingListUnread: number;
+  readingListTotal: number;
+  feedbackThisWeek: number;
+}
+
+function getStatusSnapshot(db: Db): StatusSnapshot {
+  // Total papers ingested
+  const papersTotal = (db.sqlite.prepare('SELECT COUNT(*) as n FROM papers').get() as { n: number }).n;
+
+  // Papers ingested in last 7 days
+  const papersThisWeek = (
+    db.sqlite
+      .prepare(`SELECT COUNT(*) as n FROM papers WHERE ingested_at >= datetime('now', '-7 days')`)
+      .get() as { n: number }
+  ).n;
+
+  // Last digest (try digests table, fall back gracefully)
+  let lastDigestAt: string | null = null;
+  let lastDigestCount = 0;
+  try {
+    const digestRow = db.sqlite
+      .prepare(
+        `SELECT sent_at, paper_count, track_name FROM digests
+         ORDER BY sent_at DESC LIMIT 1`,
+      )
+      .get() as DigestRow | undefined;
+    lastDigestAt = digestRow?.sent_at ?? null;
+    lastDigestCount = digestRow?.paper_count ?? 0;
+  } catch {
+    // digests table may not exist — skip silently
+  }
+
+  // Reading list
+  const readingListUnread = (
+    db.sqlite
+      .prepare(`SELECT COUNT(*) as n FROM reading_list WHERE status IN ('unread', 'in_progress')`)
+      .get() as { n: number }
+  ).n;
+
+  const readingListTotal = (
+    db.sqlite.prepare('SELECT COUNT(*) as n FROM reading_list').get() as { n: number }
+  ).n;
+
+  // Feedback this week
+  const feedbackThisWeek = (
+    db.sqlite
+      .prepare(
+        `SELECT COUNT(*) as n FROM paper_feedback WHERE created_at >= datetime('now', '-7 days')`,
+      )
+      .get() as { n: number }
+  ).n;
+
+  return {
+    papersTotal,
+    papersThisWeek,
+    lastDigestAt,
+    lastDigestCount,
+    readingListUnread,
+    readingListTotal,
+    feedbackThisWeek,
+  };
+}
+
+function formatStatusReply(snap: StatusSnapshot): string {
+  const lines: string[] = ['📡 arxiv-coach status'];
+  lines.push('');
+
+  // Last digest
+  if (snap.lastDigestAt) {
+    const d = new Date(snap.lastDigestAt);
+    const hoursAgo = Math.round((Date.now() - d.getTime()) / 3_600_000);
+    const timeLabel = hoursAgo < 24 ? `${hoursAgo}h ago` : `${Math.round(hoursAgo / 24)}d ago`;
+    lines.push(`📬 Last digest: ${timeLabel} (${snap.lastDigestCount} papers)`);
+  } else {
+    lines.push('📬 Last digest: none yet');
+  }
+
+  // Papers
+  lines.push(`📄 Papers in DB: ${snap.papersTotal} total, ${snap.papersThisWeek} this week`);
+
+  // Reading list
+  lines.push(
+    `📚 Reading list: ${snap.readingListUnread} unread / ${snap.readingListTotal} saved`,
+  );
+
+  // Feedback
+  lines.push(`✍️ Feedback this week: ${snap.feedbackThisWeek} papers rated`);
+
+  // Overall health indicator
+  lines.push('');
+  if (snap.papersThisWeek > 0 || snap.feedbackThisWeek > 0) {
+    lines.push('✅ System healthy');
+  } else {
+    lines.push('⚠️ No activity this week — check cron jobs');
+  }
+
+  return lines.join('\n');
+}
+
+function handleStatusQuery(db: Db): HandleResult {
+  try {
+    const snap = getStatusSnapshot(db);
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: formatStatusReply(snap),
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: `❌ Error fetching status: ${msg}`,
+    };
+  }
+}
+
+// ── Stats query ────────────────────────────────────────────────────────────
+
+interface FeedbackCountRow {
+  feedback_type: string;
+  cnt: number;
+}
+
+interface TrackStatsRow {
+  track_name: string;
+  cnt: number;
+}
+
+function handleStatsQuery(db: Db, query: ParsedQuery): HandleResult {
+  const days = query.days ?? 7;
+  const sinceExpr = `datetime('now', '-${days} days')`;
+
+  try {
+    // Feedback breakdown
+    const feedbackCounts = db.sqlite
+      .prepare(
+        `SELECT feedback_type, COUNT(*) as cnt FROM paper_feedback
+         WHERE created_at >= ${sinceExpr}
+         GROUP BY feedback_type
+         ORDER BY cnt DESC`,
+      )
+      .all() as FeedbackCountRow[];
+
+    // Papers ingested this window
+    const papersIngested = (
+      db.sqlite
+        .prepare(`SELECT COUNT(*) as n FROM papers WHERE ingested_at >= ${sinceExpr}`)
+        .get() as { n: number }
+    ).n;
+
+    // Top tracks by paper count (via digests, if available)
+    let topTracks: TrackStatsRow[] = [];
+    try {
+      topTracks = db.sqlite
+        .prepare(
+          `SELECT track_name, COUNT(*) as cnt FROM digests
+           WHERE sent_at >= ${sinceExpr} AND track_name IS NOT NULL
+           GROUP BY track_name ORDER BY cnt DESC LIMIT 3`,
+        )
+        .all() as TrackStatsRow[];
+    } catch {
+      // digests table may not exist
+    }
+
+    // Format reply
+    const lines: string[] = [`📊 Stats (last ${days} days)`];
+    lines.push('');
+
+    lines.push(`📄 Papers ingested: ${papersIngested}`);
+    lines.push('');
+
+    const ICONS: Record<string, string> = {
+      love: '❤️',
+      read: '✅',
+      save: '⭐',
+      skip: '⏭️',
+      meh: '😐',
+    };
+
+    if (feedbackCounts.length > 0) {
+      lines.push('Feedback:');
+      for (const row of feedbackCounts) {
+        const icon = ICONS[row.feedback_type] ?? '📝';
+        lines.push(`  ${icon} ${row.feedback_type}: ${row.cnt}`);
+      }
+      const total = feedbackCounts.reduce((s, r) => s + r.cnt, 0);
+      lines.push(`  Total: ${total}`);
+    } else {
+      lines.push('Feedback: none this period');
+    }
+
+    if (topTracks.length > 0) {
+      lines.push('');
+      lines.push('Top tracks:');
+      for (const t of topTracks) {
+        lines.push(`  • ${t.track_name} (${t.cnt} digests)`);
+      }
+    }
+
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: lines.join('\n'),
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: `❌ Error fetching stats: ${msg}`,
+    };
+  }
+}
+
 // ── Reading list query ─────────────────────────────────────────────────────
 
 interface ReadingListRow {
@@ -173,7 +401,12 @@ export function createFeedbackHandler(opts: HandlerOptions = {}) {
         if (parsed.query.command === 'reading-list') {
           return handleReadingListQuery(db, parsed.query);
         }
-        // Future query commands handled here
+        if (parsed.query.command === 'status') {
+          return handleStatusQuery(db);
+        }
+        if (parsed.query.command === 'stats') {
+          return handleStatsQuery(db, parsed.query);
+        }
         return { shouldReply: false, wasCommand: false };
       }
 

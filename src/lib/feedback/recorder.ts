@@ -148,6 +148,16 @@ export function recordFeedback(opts: RecordOptions): RecordResult {
         .run(arxivId);
     }
 
+    // If /love and paper is in reading list, bump priority to 8
+    if (feedbackType === 'love') {
+      db.sqlite
+        .prepare(
+          `UPDATE reading_list SET priority = MAX(priority, 8)
+           WHERE paper_id = ?`,
+        )
+        .run(arxivId);
+    }
+
     return { ok: true, paper, alreadyRecorded: false };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
