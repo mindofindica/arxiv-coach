@@ -2,17 +2,31 @@
 
 Give arxiv-coach real-time feedback on papers directly from Signal.
 
+> **Full reference:** [`docs/signal-commands.md`](./signal-commands.md) — complete command docs including `/reading-list`, `/status`, and `/stats`.
+
 ## Commands
 
 Reply to any Signal message (or send a new one) with:
 
+### Paper Feedback (require arxiv ID)
+
 | Command | Effect | Signal Strength |
 |---------|--------|-----------------|
 | `/read 2403.12345` | Mark as read | +8 |
-| `/love 2403.12345` | Strong positive | +10 |
+| `/love 2403.12345` | Strong positive; bumps reading-list priority | +10 |
 | `/save 2403.12345` | Add to reading list | +5 |
 | `/meh 2403.12345` | Weak negative | -2 |
 | `/skip 2403.12345` | Deprioritise | -5 |
+
+### Query Commands (no arxiv ID needed)
+
+| Command | What it returns |
+|---------|-----------------|
+| `/reading-list` | Unread saved papers (default: 5) |
+| `/reading-list --status all --limit 10` | All saved papers with custom limit |
+| `/status` | System health snapshot (last digest, papers, reading list) |
+| `/stats` | 7-day activity breakdown (feedback counts, top tracks) |
+| `/stats --days 30` | Longer window (1–90 days) |
 
 ## Arxiv ID Formats
 
@@ -78,18 +92,34 @@ Feedback is persisted to three tables (auto-created on first use):
 - `user_interactions` — timestamped event log with signal strengths
 - `reading_list` — saved papers with status (unread → in_progress → read) and priority
 
-## Reading List CLI
+## Reading List
 
-Check your reading list:
+From Signal (shipped):
+```
+/reading-list               ← unread papers, limit 5
+/reading-list --status all --limit 10
+/reading-list --status read
+```
 
+From CLI:
 ```bash
 tsx src/commands/feedback.ts reading-list
 tsx src/commands/feedback.ts reading-list --status unread
 tsx src/commands/feedback.ts summary --last 7
 ```
 
+## What's Shipped (V1)
+
+All of these work today:
+- ✅ `/read`, `/love`, `/save`, `/meh`, `/skip` — paper feedback with idempotency
+- ✅ `/reading-list` with `--status` and `--limit` flags
+- ✅ `/status` — system health snapshot
+- ✅ `/stats` — weekly activity breakdown with `--days` window
+- ✅ `/love` → reading-list priority bump (max of current and 8)
+
 ## Future Work
 
 - **Personalised scoring**: use `signal_strength` history to reweight `llm_scores` at digest selection time
 - **Weekly pattern analysis**: surface which paper types get loved vs skipped
 - **Auto-expand similar tracks**: if you consistently love `agentic reasoning` papers, add related keywords to that track
+- **`/digest`**: on-demand digest for a specific track or topic

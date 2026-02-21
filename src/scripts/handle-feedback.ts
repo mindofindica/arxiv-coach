@@ -9,10 +9,13 @@
  *   /read 2403.12345           — mark as read (signal +8)
  *   /skip 2403.12345           — deprioritise (signal -5)
  *   /save 2403.12345           — add to reading list (signal +5)
- *   /love 2403.12345           — strong positive (signal +10)
+ *   /love 2403.12345           — strong positive (signal +10); bumps reading-list priority
  *   /meh 2403.12345            — weak signal (-2)
  *   /reading-list              — show unread saved papers (default: 5)
  *   /reading-list --status all --limit 10
+ *   /status                    — system health snapshot (digest, papers, reading list, feedback)
+ *   /stats                     — 7-day activity breakdown (feedback counts, top tracks)
+ *   /stats --days 30           — longer window (1-90 days)
  *
  * All feedback commands support optional flags (Signal-safe unquoted form):
  *   --notes interesting ML approach    (captured as full multi-word string)
@@ -21,7 +24,9 @@
  *
  * Usage:
  *   tsx src/scripts/handle-feedback.ts "/read 2403.12345"
- *   tsx src/scripts/handle-feedback.ts "/reading-list"
+ *   tsx src/scripts/handle-feedback.ts "/reading-list --status all --limit 10"
+ *   tsx src/scripts/handle-feedback.ts "/status"
+ *   tsx src/scripts/handle-feedback.ts "/stats --days 14"
  *   echo "/save 2501.98765 --notes great dataset" | tsx src/scripts/handle-feedback.ts
  *
  * Output (JSON on stdout):
@@ -34,8 +39,10 @@
  *   1 — fatal error (db init failure, missing config, etc.)
  *
  * Integration with OpenClaw HEARTBEAT:
- *   The main session handles incoming Signal messages matching /read /skip /save /love /meh /reading-list.
+ *   The main session handles incoming Signal messages matching:
+ *   /read /skip /save /love /meh /reading-list /status /stats
  *   If shouldReply=true, Indica sends `reply` back to Mikey on Signal.
+ *   Full reference: docs/signal-commands.md
  */
 
 import path from 'node:path';
