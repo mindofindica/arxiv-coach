@@ -16,6 +16,9 @@
  *   /reading-list            — show saved/unread papers (default: unread, limit 5)
  *   /reading-list --status all --limit 10
  *   /reading-list --status read
+ *   /status                  — system health snapshot (last digest, papers, reading list)
+ *   /stats                   — 7-day activity breakdown (feedback counts, top tracks)
+ *   /stats --days 30         — longer window
  *
  * ArXiv ID formats accepted:
  *   2403.12345       — bare (new style, 4+5 digits)
@@ -30,7 +33,7 @@
  */
 
 export type FeedbackType = 'read' | 'skip' | 'save' | 'love' | 'meh';
-export type QueryCommand = 'reading-list';
+export type QueryCommand = 'reading-list' | 'status' | 'stats';
 
 export interface ParsedFeedback {
   feedbackType: FeedbackType;
@@ -45,6 +48,7 @@ export interface ParsedQuery {
   command: QueryCommand;
   status: 'unread' | 'read' | 'all';  // filter for reading-list
   limit: number;                        // max papers to return (1-20)
+  days: number;                         // window for /stats (default 7)
   raw: string;
 }
 
@@ -78,7 +82,7 @@ const ARXIV_URL_RE = /https?:\/\/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})(v\d+)
 const ARXIV_PREFIX_RE = /\barxiv:(\d{4}\.\d{4,5})(v\d+)?\b/i;
 
 const FEEDBACK_COMMANDS: Set<string> = new Set(['read', 'skip', 'save', 'love', 'meh']);
-const QUERY_COMMANDS: Set<string> = new Set(['reading-list']);
+const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats']);
 
 /**
  * Extract and normalise an arxiv ID from a string fragment.
@@ -148,11 +152,12 @@ function parseFlags(flagStr: string): { notes: string | null; reason: string | n
 }
 
 /**
- * Parse query flags for commands like /reading-list.
+ * Parse query flags for commands like /reading-list, /stats.
  */
-function parseQueryFlags(flagStr: string): { status: 'unread' | 'read' | 'all'; limit: number } {
+function parseQueryFlags(flagStr: string): { status: 'unread' | 'read' | 'all'; limit: number; days: number } {
   let status: 'unread' | 'read' | 'all' = 'unread';
   let limit = 5;
+  let days = 7;
 
   const segments = flagStr.split(/(--\w+)/);
   for (let i = 1; i < segments.length; i += 2) {
@@ -169,10 +174,13 @@ function parseQueryFlags(flagStr: string): { status: 'unread' | 'read' | 'all'; 
     } else if (key === 'limit') {
       const n = parseInt(val, 10);
       if (!isNaN(n) && n >= 1 && n <= 20) limit = n;
+    } else if (key === 'days') {
+      const n = parseInt(val, 10);
+      if (!isNaN(n) && n >= 1 && n <= 90) days = n;
     }
   }
 
-  return { status, limit };
+  return { status, limit, days };
 }
 
 /**
@@ -198,7 +206,7 @@ export function parseFeedbackMessage(text: string): ParseResult {
 
   // ── Query commands (no arxiv ID required) ────────────────────────────
   if (QUERY_COMMANDS.has(command)) {
-    const { status, limit } = parseQueryFlags(rest);
+    const { status, limit, days } = parseQueryFlags(rest);
     return {
       ok: true,
       kind: 'query' as const,
@@ -206,6 +214,7 @@ export function parseFeedbackMessage(text: string): ParseResult {
         command: command as QueryCommand,
         status,
         limit,
+        days,
         raw: trimmed,
       },
     };

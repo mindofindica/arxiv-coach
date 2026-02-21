@@ -5,9 +5,9 @@
  * Uses an in-memory SQLite database — no disk I/O.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
-import { openDb, migrate } from '../db.js';
+import { migrate } from '../db.js';
 import { ensureFeedbackTables } from './migrate.js';
 import { parseFeedbackMessage } from './parser.js';
 import { recordFeedback } from './recorder.js';

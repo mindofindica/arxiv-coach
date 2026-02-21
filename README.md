@@ -90,6 +90,36 @@ npm run explain -- "#2 from yesterday" --level engineer
 
 See [docs/EXPLAIN.md](docs/EXPLAIN.md) for full documentation.
 
+### Signal Feedback Commands
+
+Give real-time feedback on papers directly from Signal. Indica handles these in the main session via OpenClaw's heartbeat.
+
+**Paper feedback** (require arxiv ID):
+```
+/read 2403.12345      ← mark as read (+8)
+/love 2403.12345      ← strong positive (+10); bumps reading-list priority
+/save 2403.12345      ← add to reading list (+5)
+/meh  2403.12345      ← weak negative (-2)
+/skip 2403.12345      ← deprioritise (-5)
+```
+
+**Query commands** (no ID needed):
+```
+/reading-list                        ← unread saved papers (limit 5)
+/reading-list --status all --limit 10
+/status                              ← system health snapshot
+/stats                               ← 7-day activity breakdown
+/stats --days 30
+```
+
+All commands are idempotent. Flags `--notes`, `--reason`, `--priority` work without quotes (Signal-safe).
+
+See **[docs/signal-commands.md](docs/signal-commands.md)** for the complete reference.
+
+```bash
+npm run handle-feedback -- "/status"    # Test from CLI
+```
+
 ### Other Commands
 
 ```bash
