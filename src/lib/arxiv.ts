@@ -54,7 +54,10 @@ export async function fetchAtom(category: string, maxResults = 100): Promise<str
 
   // Be polite + resilient: retry on transient failures (esp. 429 rate limiting).
   // NOTE: We keep this conservative to avoid hammering arXiv.
-  const maxAttempts = 5;
+  // 8 attempts: gives ~10 min total wait time (1s, 2s, 4s, 8s, 16s, 32s, 64s, ...)
+  // Capped at 2 min per attempt — recovers from extended 429 periods (seen Feb 21 2026).
+  const maxAttempts = 8;
+  const MAX_BACKOFF_MS = 120_000; // 2 min cap per wait
   const FETCH_TIMEOUT_MS = 30_000; // 30s per attempt — prevents indefinite hang on slow arXiv
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     // AbortSignal.timeout available in Node 18+; gives a hard timeout per request
@@ -73,7 +76,7 @@ export async function fetchAtom(category: string, maxResults = 100): Promise<str
         const msg = err instanceof Error ? err.message : String(err);
         throw new Error(`arXiv fetch failed for ${category} (attempt ${attempt}): ${msg}`);
       }
-      const base = Math.min(60_000, 1000 * 2 ** (attempt - 1));
+      const base = Math.min(MAX_BACKOFF_MS, 1000 * 2 ** (attempt - 1));
       const waitMs = Math.floor(base * (0.75 + Math.random() * 0.75));
       await new Promise((r) => setTimeout(r, waitMs));
       continue;
@@ -87,9 +90,10 @@ export async function fetchAtom(category: string, maxResults = 100): Promise<str
       throw new Error(`arXiv fetch failed for ${category}: ${status} ${res.statusText}`);
     }
 
-    // Exponential backoff with jitter
-    const base = Math.min(60_000, 1000 * 2 ** (attempt - 1));
-    const waitMs = Math.floor(base * (0.75 + Math.random() * 0.75));
+    // Exponential backoff with jitter — extra delay on 429 (respect rate limits)
+    const base = Math.min(MAX_BACKOFF_MS, 1000 * 2 ** (attempt - 1));
+    const rateLimitMultiplier = status === 429 ? 1.5 : 1.0;
+    const waitMs = Math.floor(base * rateLimitMultiplier * (0.75 + Math.random() * 0.75));
     await new Promise((r) => setTimeout(r, waitMs));
   }
 

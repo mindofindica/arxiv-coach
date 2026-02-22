@@ -45,19 +45,31 @@ tracks:
 
   - name: Agents / Memory
     enabled: true
-    categories: [cs.AI, cs.CL]
+    categories: [cs.AI, cs.CL, cs.LG]
     phrases:
       - "long-term memory"
       - "episodic memory"
       - "memory augmentation"
+      - "external memory"
+      - "memory consolidation"
+      - "persistent memory"
+      - "context management"
+      - "associative memory"
+      - "working memory"
+      - "memory retrieval"
+      - "memory module"
+      - "agent memory"
+      - "multi-session"
+      - "long-context agent"
     keywords:
       - memory
-      - retrieval
-      - store
       - recall
+      - persistence
+      - memorization
+      - associative
     exclude: []
     threshold: 3
-    maxPerDay: 2
+    maxPerDay: 3
 
   - name: Agent Evaluation & Reliability
     enabled: true

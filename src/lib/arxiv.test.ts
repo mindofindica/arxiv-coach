@@ -49,6 +49,37 @@ describe('fetchAtom', () => {
     await expect(fetchAtom('cs.AI', 1)).rejects.toThrow('400 Bad Request');
   });
 
+  it('retries on 429 and succeeds on second attempt', async () => {
+    // 429 rate-limit → should retry, not throw immediately.
+    const mockXml = '<feed></feed>';
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 429, statusText: 'Too Many Requests' })
+      .mockResolvedValueOnce({ ok: true, text: async () => mockXml });
+    vi.stubGlobal('fetch', mockFetch);
+    vi.useFakeTimers();
+    const resultPromise = fetchAtom('cs.AI', 1);
+    await vi.runAllTimersAsync();
+    const result = await resultPromise;
+    vi.useRealTimers();
+    expect(result).toBe(mockXml);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws after exhausting all retries on persistent 429', async () => {
+    // If arXiv keeps rate-limiting for all 8 attempts, throw with a clear error.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false, status: 429, statusText: 'Too Many Requests',
+    }));
+    vi.useFakeTimers();
+    // Attach rejection handler BEFORE awaiting timers to avoid unhandled rejection
+    const resultPromise = fetchAtom('cs.AI', 1);
+    const caught = resultPromise.catch((e: Error) => e.message);
+    await vi.runAllTimersAsync();
+    vi.useRealTimers();
+    const errMsg = await caught;
+    expect(errMsg).toContain('429 Too Many Requests');
+  });
+
   it('retries on timeout (AbortError): succeeds on second attempt', async () => {
     // This test validates the core fix: AbortError (from AbortSignal.timeout) is
     // caught, treated as retryable, and the function retries successfully.
