@@ -19,6 +19,9 @@
  *   /status                  — system health snapshot (last digest, papers, reading list)
  *   /stats                   — 7-day activity breakdown (feedback counts, top tracks)
  *   /stats --days 30         — longer window
+ *   /weekly                  — weekly paper summary (current week)
+ *   /weekly --week 2026-W07  — specific ISO week
+ *   /weekly --track LLM      — filter to one track
  *
  * ArXiv ID formats accepted:
  *   2403.12345       — bare (new style, 4+5 digits)
@@ -33,7 +36,7 @@
  */
 
 export type FeedbackType = 'read' | 'skip' | 'save' | 'love' | 'meh';
-export type QueryCommand = 'reading-list' | 'status' | 'stats';
+export type QueryCommand = 'reading-list' | 'status' | 'stats' | 'weekly';
 
 export interface ParsedFeedback {
   feedbackType: FeedbackType;
@@ -49,6 +52,10 @@ export interface ParsedQuery {
   status: 'unread' | 'read' | 'all';  // filter for reading-list
   limit: number;                        // max papers to return (1-20)
   days: number;                         // window for /stats (default 7)
+  /** ISO week override for /weekly, e.g. "2026-W07" (default: current week) */
+  week: string | null;
+  /** Track filter for /weekly, e.g. "LLM" (default: all tracks) */
+  track: string | null;
   raw: string;
 }
 
@@ -82,7 +89,7 @@ const ARXIV_URL_RE = /https?:\/\/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})(v\d+)
 const ARXIV_PREFIX_RE = /\barxiv:(\d{4}\.\d{4,5})(v\d+)?\b/i;
 
 const FEEDBACK_COMMANDS: Set<string> = new Set(['read', 'skip', 'save', 'love', 'meh']);
-const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats']);
+const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats', 'weekly']);
 
 /**
  * Extract and normalise an arxiv ID from a string fragment.
@@ -151,15 +158,26 @@ function parseFlags(flagStr: string): { notes: string | null; reason: string | n
   return { notes, reason, priority };
 }
 
+// Validate ISO week format: YYYY-Www
+const ISO_WEEK_RE = /^\d{4}-W\d{2}$/;
+
 /**
- * Parse query flags for commands like /reading-list, /stats.
+ * Parse query flags for commands like /reading-list, /stats, /weekly.
  */
-function parseQueryFlags(flagStr: string): { status: 'unread' | 'read' | 'all'; limit: number; days: number } {
+function parseQueryFlags(flagStr: string): {
+  status: 'unread' | 'read' | 'all';
+  limit: number;
+  days: number;
+  week: string | null;
+  track: string | null;
+} {
   let status: 'unread' | 'read' | 'all' = 'unread';
   let limit = 5;
   let days = 7;
+  let week: string | null = null;
+  let track: string | null = null;
 
-  const segments = flagStr.split(/(--\w+)/);
+  const segments = flagStr.split(/(--[\w-]+)/);
   for (let i = 1; i < segments.length; i += 2) {
     const key = segments[i]!.slice(2);
     const rawVal = (segments[i + 1] ?? '').trim();
@@ -177,10 +195,14 @@ function parseQueryFlags(flagStr: string): { status: 'unread' | 'read' | 'all'; 
     } else if (key === 'days') {
       const n = parseInt(val, 10);
       if (!isNaN(n) && n >= 1 && n <= 90) days = n;
+    } else if (key === 'week') {
+      if (ISO_WEEK_RE.test(val)) week = val;
+    } else if (key === 'track') {
+      if (val.length > 0) track = val;
     }
   }
 
-  return { status, limit, days };
+  return { status, limit, days, week, track };
 }
 
 /**
@@ -206,7 +228,7 @@ export function parseFeedbackMessage(text: string): ParseResult {
 
   // ── Query commands (no arxiv ID required) ────────────────────────────
   if (QUERY_COMMANDS.has(command)) {
-    const { status, limit, days } = parseQueryFlags(rest);
+    const { status, limit, days, week, track } = parseQueryFlags(rest);
     return {
       ok: true,
       kind: 'query' as const,
@@ -215,6 +237,8 @@ export function parseFeedbackMessage(text: string): ParseResult {
         status,
         limit,
         days,
+        week,
+        track,
         raw: trimmed,
       },
     };
@@ -224,7 +248,7 @@ export function parseFeedbackMessage(text: string): ParseResult {
     return {
       ok: false,
       error: 'unknown_command',
-      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list`,
+      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly`,
     };
   }
 

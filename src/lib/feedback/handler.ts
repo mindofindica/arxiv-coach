@@ -20,6 +20,8 @@ import { openDb, migrate } from '../db.js';
 import { ensureFeedbackTables } from './migrate.js';
 import { parseFeedbackMessage, type ParsedQuery } from './parser.js';
 import { recordFeedback, formatConfirmation } from './recorder.js';
+import { getWeeklySummary } from '../query/weekly-summary.js';
+import { renderWeeklySummaryMessage } from '../query/render-weekly-summary.js';
 import type { Db } from '../db.js';
 
 export interface HandlerOptions {
@@ -365,6 +367,58 @@ function handleReadingListQuery(db: Db, query: ParsedQuery): HandleResult {
   };
 }
 
+// ── Weekly summary ─────────────────────────────────────────────────────────
+
+/**
+ * Return the current ISO week string, e.g. "2026-W08".
+ * Uses the ISO 8601 definition: week 1 is the week containing the year's first Thursday.
+ */
+function getCurrentIsoWeek(): string {
+  const now = new Date();
+  // Thursday of the current week (ISO: Mon=1, Thu=4)
+  const thu = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const day = thu.getUTCDay() || 7; // convert Sun=0 to 7
+  thu.setUTCDate(thu.getUTCDate() + 4 - day); // snap to Thursday
+
+  const jan1 = new Date(Date.UTC(thu.getUTCFullYear(), 0, 1));
+  const weekNum = Math.ceil(((thu.getTime() - jan1.getTime()) / 86_400_000 + 1) / 7);
+
+  return `${thu.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+}
+
+function handleWeeklyQuery(db: Db, query: ParsedQuery): HandleResult {
+  const weekIso = query.week ?? getCurrentIsoWeek();
+
+  try {
+    const summary = getWeeklySummary(db, weekIso);
+
+    // Apply track filter if requested
+    if (query.track) {
+      const filterLower = query.track.toLowerCase();
+      summary.trackStats = summary.trackStats.filter(t =>
+        t.trackName.toLowerCase().includes(filterLower)
+      );
+      summary.topPapers = summary.topPapers.filter(p =>
+        p.tracks.some(t => t.toLowerCase().includes(filterLower))
+      );
+    }
+
+    const { text } = renderWeeklySummaryMessage(summary);
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: text,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: `❌ Error fetching weekly summary for ${weekIso}: ${msg}`,
+    };
+  }
+}
+
 // ── Handler factory ────────────────────────────────────────────────────────
 
 export function createFeedbackHandler(opts: HandlerOptions = {}) {
@@ -406,6 +460,9 @@ export function createFeedbackHandler(opts: HandlerOptions = {}) {
         }
         if (parsed.query.command === 'stats') {
           return handleStatsQuery(db, parsed.query);
+        }
+        if (parsed.query.command === 'weekly') {
+          return handleWeeklyQuery(db, parsed.query);
         }
         return { shouldReply: false, wasCommand: false };
       }

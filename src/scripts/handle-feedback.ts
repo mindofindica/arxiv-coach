@@ -16,6 +16,9 @@
  *   /status                    — system health snapshot (digest, papers, reading list, feedback)
  *   /stats                     — 7-day activity breakdown (feedback counts, top tracks)
  *   /stats --days 30           — longer window (1-90 days)
+ *   /weekly                    — weekly paper summary (current week)
+ *   /weekly --week 2026-W07    — specific ISO week
+ *   /weekly --track LLM        — filter to one track
  *
  * All feedback commands support optional flags (Signal-safe unquoted form):
  *   --notes interesting ML approach    (captured as full multi-word string)
@@ -27,6 +30,9 @@
  *   tsx src/scripts/handle-feedback.ts "/reading-list --status all --limit 10"
  *   tsx src/scripts/handle-feedback.ts "/status"
  *   tsx src/scripts/handle-feedback.ts "/stats --days 14"
+ *   tsx src/scripts/handle-feedback.ts "/weekly"
+ *   tsx src/scripts/handle-feedback.ts "/weekly --week 2026-W07"
+ *   tsx src/scripts/handle-feedback.ts "/weekly --track LLM"
  *   echo "/save 2501.98765 --notes great dataset" | tsx src/scripts/handle-feedback.ts
  *
  * Output (JSON on stdout):
@@ -40,7 +46,7 @@
  *
  * Integration with OpenClaw HEARTBEAT:
  *   The main session handles incoming Signal messages matching:
- *   /read /skip /save /love /meh /reading-list /status /stats
+ *   /read /skip /save /love /meh /reading-list /status /stats /weekly
  *   If shouldReply=true, Indica sends `reply` back to Mikey on Signal.
  *   Full reference: docs/signal-commands.md
  */

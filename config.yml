@@ -3,7 +3,7 @@ schedule:
   dailyDigestTime: "08:30"
   weekly:
     day: Sun
-    time: "11:00"
+    time: "16:00"
 
 discovery:
   categories:
@@ -17,8 +17,8 @@ storage:
   root: /root/.openclaw/state/arxiv-coach
 
 limits:
-  maxItemsPerDigest: 5
-  maxPerTrackPerDay: 2
+  maxItemsPerDigest: 3
+  maxPerTrackPerDay: 1
 
 rateLimiting:
   apiMinDelayMs: 3000
