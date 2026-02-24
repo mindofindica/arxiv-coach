@@ -19,6 +19,9 @@
  *   /weekly                    — weekly paper summary (current week)
  *   /weekly --week 2026-W07    — specific ISO week
  *   /weekly --track LLM        — filter to one track
+ *   /search speculative decoding — full-text search over paper library
+ *   /search RAG --limit 3      — limit to 3 results
+ *   /search inference --track "LLM Efficiency" — filter by track
  *
  * All feedback commands support optional flags (Signal-safe unquoted form):
  *   --notes interesting ML approach    (captured as full multi-word string)
@@ -33,6 +36,8 @@
  *   tsx src/scripts/handle-feedback.ts "/weekly"
  *   tsx src/scripts/handle-feedback.ts "/weekly --week 2026-W07"
  *   tsx src/scripts/handle-feedback.ts "/weekly --track LLM"
+ *   tsx src/scripts/handle-feedback.ts "/search speculative decoding"
+ *   tsx src/scripts/handle-feedback.ts "/search RAG --limit 3"
  *   echo "/save 2501.98765 --notes great dataset" | tsx src/scripts/handle-feedback.ts
  *
  * Output (JSON on stdout):
