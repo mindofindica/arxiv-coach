@@ -31,7 +31,8 @@
     "plan-gap-lessons": "tsx src/scripts/plan-gap-lessons.ts",
     "mark-gap-lesson-sent": "tsx src/scripts/mark-gap-lesson-sent.ts",
     "handle-feedback": "tsx src/scripts/handle-feedback.ts",
-    "backfill-digest-papers": "tsx src/scripts/backfill-digest-papers.ts"
+    "backfill-digest-papers": "tsx src/scripts/backfill-digest-papers.ts",
+    "search": "tsx src/scripts/query-search.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

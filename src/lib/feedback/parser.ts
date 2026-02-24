@@ -36,7 +36,7 @@
  */
 
 export type FeedbackType = 'read' | 'skip' | 'save' | 'love' | 'meh';
-export type QueryCommand = 'reading-list' | 'status' | 'stats' | 'weekly';
+export type QueryCommand = 'reading-list' | 'status' | 'stats' | 'weekly' | 'search';
 
 export interface ParsedFeedback {
   feedbackType: FeedbackType;
@@ -54,8 +54,12 @@ export interface ParsedQuery {
   days: number;                         // window for /stats (default 7)
   /** ISO week override for /weekly, e.g. "2026-W07" (default: current week) */
   week: string | null;
-  /** Track filter for /weekly, e.g. "LLM" (default: all tracks) */
+  /** Track filter for /weekly and /search, e.g. "LLM" (default: all tracks) */
   track: string | null;
+  /** Free-text search query for /search (e.g. "speculative decoding") */
+  searchQuery: string | null;
+  /** Minimum LLM score filter for /search (1–5) */
+  minLlmScore: number | null;
   raw: string;
 }
 
@@ -89,7 +93,7 @@ const ARXIV_URL_RE = /https?:\/\/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})(v\d+)
 const ARXIV_PREFIX_RE = /\barxiv:(\d{4}\.\d{4,5})(v\d+)?\b/i;
 
 const FEEDBACK_COMMANDS: Set<string> = new Set(['read', 'skip', 'save', 'love', 'meh']);
-const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats', 'weekly']);
+const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats', 'weekly', 'search']);
 
 /**
  * Extract and normalise an arxiv ID from a string fragment.
@@ -162,7 +166,10 @@ function parseFlags(flagStr: string): { notes: string | null; reason: string | n
 const ISO_WEEK_RE = /^\d{4}-W\d{2}$/;
 
 /**
- * Parse query flags for commands like /reading-list, /stats, /weekly.
+ * Parse query flags for commands like /reading-list, /stats, /weekly, /search.
+ *
+ * For /search, the leading text before any --flag is the search query.
+ * e.g. "/search speculative decoding --limit 3" → searchQuery="speculative decoding", limit=3
  */
 function parseQueryFlags(flagStr: string): {
   status: 'unread' | 'read' | 'all';
@@ -170,12 +177,26 @@ function parseQueryFlags(flagStr: string): {
   days: number;
   week: string | null;
   track: string | null;
+  searchQuery: string | null;
+  minLlmScore: number | null;
 } {
   let status: 'unread' | 'read' | 'all' = 'unread';
   let limit = 5;
   let days = 7;
   let week: string | null = null;
   let track: string | null = null;
+  let searchQuery: string | null = null;
+  let minLlmScore: number | null = null;
+
+  // Extract leading text before the first --flag as potential searchQuery
+  const firstFlagIdx = flagStr.indexOf('--');
+  if (firstFlagIdx > 0) {
+    const leading = flagStr.slice(0, firstFlagIdx).trim();
+    if (leading.length > 0) searchQuery = leading;
+  } else if (firstFlagIdx === -1 && flagStr.trim().length > 0) {
+    // No flags at all — entire rest is the search query
+    searchQuery = flagStr.trim();
+  }
 
   const segments = flagStr.split(/(--[\w-]+)/);
   for (let i = 1; i < segments.length; i += 2) {
@@ -199,10 +220,16 @@ function parseQueryFlags(flagStr: string): {
       if (ISO_WEEK_RE.test(val)) week = val;
     } else if (key === 'track') {
       if (val.length > 0) track = val;
+    } else if (key === 'query' || key === 'q') {
+      // Allow explicit --query flag as alternative
+      if (val.length > 0) searchQuery = val;
+    } else if (key === 'min-score' || key === 'min-llm-score') {
+      const n = parseInt(val, 10);
+      if (!isNaN(n) && n >= 1 && n <= 5) minLlmScore = n;
     }
   }
 
-  return { status, limit, days, week, track };
+  return { status, limit, days, week, track, searchQuery, minLlmScore };
 }
 
 /**
@@ -228,7 +255,7 @@ export function parseFeedbackMessage(text: string): ParseResult {
 
   // ── Query commands (no arxiv ID required) ────────────────────────────
   if (QUERY_COMMANDS.has(command)) {
-    const { status, limit, days, week, track } = parseQueryFlags(rest);
+    const { status, limit, days, week, track, searchQuery, minLlmScore } = parseQueryFlags(rest);
     return {
       ok: true,
       kind: 'query' as const,
@@ -239,6 +266,8 @@ export function parseFeedbackMessage(text: string): ParseResult {
         days,
         week,
         track,
+        searchQuery,
+        minLlmScore,
         raw: trimmed,
       },
     };
@@ -248,7 +277,7 @@ export function parseFeedbackMessage(text: string): ParseResult {
     return {
       ok: false,
       error: 'unknown_command',
-      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly`,
+      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly /search`,
     };
   }
 
