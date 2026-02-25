@@ -213,41 +213,49 @@ export function migrate(db: Db) {
       .run(6, new Date().toISOString());
   }
 
-  // v7 migration - FTS5 full-text search over papers (title + abstract)
+  // v7 migration - FTS5 full-text search index over title + abstract
   if (current <= 6) {
+    // Create the FTS5 virtual table
     sqlite.exec(
       `CREATE VIRTUAL TABLE IF NOT EXISTS papers_fts USING fts5(
         arxiv_id UNINDEXED,
         title,
         abstract,
         tokenize='porter unicode61'
-      );
+      )`
+    );
 
-      -- Populate from existing papers
-      INSERT INTO papers_fts (arxiv_id, title, abstract)
-      SELECT arxiv_id, title, abstract FROM papers;
+    // Populate FTS index from existing papers (no-op if papers is empty)
+    sqlite.exec(
+      `INSERT INTO papers_fts (arxiv_id, title, abstract)
+       SELECT arxiv_id, title, abstract FROM papers`
+    );
 
-      -- Auto-index new papers on insert
-      CREATE TRIGGER IF NOT EXISTS papers_fts_ai
-      AFTER INSERT ON papers BEGIN
-        INSERT INTO papers_fts (arxiv_id, title, abstract)
-        VALUES (new.arxiv_id, new.title, new.abstract);
-      END;
+    // INSERT trigger — kept as a single exec() call so BEGIN...END is correct
+    sqlite.exec(
+      `CREATE TRIGGER IF NOT EXISTS papers_fts_ai
+         AFTER INSERT ON papers BEGIN
+           INSERT INTO papers_fts (arxiv_id, title, abstract)
+           VALUES (new.arxiv_id, new.title, new.abstract);
+         END`
+    );
 
-      -- Auto-update index when paper title/abstract changes
-      CREATE TRIGGER IF NOT EXISTS papers_fts_au
-      AFTER UPDATE OF title, abstract ON papers BEGIN
-        DELETE FROM papers_fts WHERE arxiv_id = old.arxiv_id;
-        INSERT INTO papers_fts (arxiv_id, title, abstract)
-        VALUES (new.arxiv_id, new.title, new.abstract);
-      END;
+    // UPDATE trigger
+    sqlite.exec(
+      `CREATE TRIGGER IF NOT EXISTS papers_fts_au
+         AFTER UPDATE OF title, abstract ON papers BEGIN
+           DELETE FROM papers_fts WHERE arxiv_id = old.arxiv_id;
+           INSERT INTO papers_fts (arxiv_id, title, abstract)
+           VALUES (new.arxiv_id, new.title, new.abstract);
+         END`
+    );
 
-      -- Remove from FTS index when paper is deleted
-      CREATE TRIGGER IF NOT EXISTS papers_fts_ad
-      AFTER DELETE ON papers BEGIN
-        DELETE FROM papers_fts WHERE arxiv_id = old.arxiv_id;
-      END;
-      `
+    // DELETE trigger
+    sqlite.exec(
+      `CREATE TRIGGER IF NOT EXISTS papers_fts_ad
+         AFTER DELETE ON papers BEGIN
+           DELETE FROM papers_fts WHERE arxiv_id = old.arxiv_id;
+         END`
     );
 
     sqlite.prepare('UPDATE schema_meta SET version=?, updated_at=? WHERE id=1')

@@ -22,8 +22,7 @@ import { parseFeedbackMessage, type ParsedQuery } from './parser.js';
 import { recordFeedback, formatConfirmation } from './recorder.js';
 import { getWeeklySummary } from '../query/weekly-summary.js';
 import { renderWeeklySummaryMessage } from '../query/render-weekly-summary.js';
-import { searchPapers } from '../query/search-papers.js';
-import { renderSearchMessage } from '../query/render-search.js';
+import { searchPapers, formatSearchReply } from '../search/search.js';
 import type { Db } from '../db.js';
 
 export interface HandlerOptions {
@@ -388,41 +387,6 @@ function getCurrentIsoWeek(): string {
   return `${thu.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
 }
 
-// ── Search query ───────────────────────────────────────────────────────────
-
-function handleSearchQuery(db: Db, query: ParsedQuery): HandleResult {
-  const rawQuery = query.searchQuery;
-
-  if (!rawQuery || !rawQuery.trim()) {
-    return {
-      shouldReply: true,
-      wasCommand: true,
-      reply: '⚠️ /search requires a query.\n\nUsage: /search <keywords>\nExample: /search speculative decoding',
-    };
-  }
-
-  try {
-    const response = searchPapers(db, rawQuery, {
-      limit: query.limit,
-      minLlmScore: query.minLlmScore ?? undefined,
-      track: query.track ?? undefined,
-    });
-    const { text } = renderSearchMessage(response);
-    return {
-      shouldReply: true,
-      wasCommand: true,
-      reply: text,
-    };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return {
-      shouldReply: true,
-      wasCommand: true,
-      reply: `❌ Error searching papers: ${msg}`,
-    };
-  }
-}
-
 function handleWeeklyQuery(db: Db, query: ParsedQuery): HandleResult {
   const weekIso = query.week ?? getCurrentIsoWeek();
 
@@ -452,6 +416,49 @@ function handleWeeklyQuery(db: Db, query: ParsedQuery): HandleResult {
       shouldReply: true,
       wasCommand: true,
       reply: `❌ Error fetching weekly summary for ${weekIso}: ${msg}`,
+    };
+  }
+}
+
+// ── Search query ───────────────────────────────────────────────────────────
+
+function handleSearchQuery(db: Db, query: ParsedQuery): HandleResult {
+  const { searchQuery, limit, track, from } = query;
+
+  if (!searchQuery) {
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply:
+        '⚠️ Usage: /search <query>\n\n' +
+        'Examples:\n' +
+        '  /search speculative decoding\n' +
+        '  /search "retrieval augmented generation"\n' +
+        '  /search LoRA --limit 10\n' +
+        '  /search agent --track LLM\n' +
+        '  /search RLHF --from 2026',
+    };
+  }
+
+  try {
+    const resp = searchPapers(db, {
+      query: searchQuery,
+      limit,
+      track,
+      from,
+    });
+
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: formatSearchReply(resp),
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: `❌ Search error: ${msg}`,
     };
   }
 }

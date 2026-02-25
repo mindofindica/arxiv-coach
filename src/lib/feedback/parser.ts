@@ -54,12 +54,18 @@ export interface ParsedQuery {
   days: number;                         // window for /stats (default 7)
   /** ISO week override for /weekly, e.g. "2026-W07" (default: current week) */
   week: string | null;
-  /** Track filter for /weekly and /search, e.g. "LLM" (default: all tracks) */
+  /** Track filter for /weekly or /search, e.g. "LLM" (default: all tracks) */
   track: string | null;
-  /** Free-text search query for /search (e.g. "speculative decoding") */
+  /**
+   * Free-text search query for /search, e.g. "speculative decoding".
+   * Everything before the first --flag is the query.
+   */
   searchQuery: string | null;
-  /** Minimum LLM score filter for /search (1–5) */
-  minLlmScore: number | null;
+  /**
+   * ISO date prefix to filter /search results, e.g. "2026" or "2025-10".
+   * Only papers published on or after this prefix are included.
+   */
+  from: string | null;
   raw: string;
 }
 
@@ -167,9 +173,6 @@ const ISO_WEEK_RE = /^\d{4}-W\d{2}$/;
 
 /**
  * Parse query flags for commands like /reading-list, /stats, /weekly, /search.
- *
- * For /search, the leading text before any --flag is the search query.
- * e.g. "/search speculative decoding --limit 3" → searchQuery="speculative decoding", limit=3
  */
 function parseQueryFlags(flagStr: string): {
   status: 'unread' | 'read' | 'all';
@@ -177,26 +180,14 @@ function parseQueryFlags(flagStr: string): {
   days: number;
   week: string | null;
   track: string | null;
-  searchQuery: string | null;
-  minLlmScore: number | null;
+  from: string | null;
 } {
   let status: 'unread' | 'read' | 'all' = 'unread';
   let limit = 5;
   let days = 7;
   let week: string | null = null;
   let track: string | null = null;
-  let searchQuery: string | null = null;
-  let minLlmScore: number | null = null;
-
-  // Extract leading text before the first --flag as potential searchQuery
-  const firstFlagIdx = flagStr.indexOf('--');
-  if (firstFlagIdx > 0) {
-    const leading = flagStr.slice(0, firstFlagIdx).trim();
-    if (leading.length > 0) searchQuery = leading;
-  } else if (firstFlagIdx === -1 && flagStr.trim().length > 0) {
-    // No flags at all — entire rest is the search query
-    searchQuery = flagStr.trim();
-  }
+  let from: string | null = null;
 
   const segments = flagStr.split(/(--[\w-]+)/);
   for (let i = 1; i < segments.length; i += 2) {
@@ -220,16 +211,13 @@ function parseQueryFlags(flagStr: string): {
       if (ISO_WEEK_RE.test(val)) week = val;
     } else if (key === 'track') {
       if (val.length > 0) track = val;
-    } else if (key === 'query' || key === 'q') {
-      // Allow explicit --query flag as alternative
-      if (val.length > 0) searchQuery = val;
-    } else if (key === 'min-score' || key === 'min-llm-score') {
-      const n = parseInt(val, 10);
-      if (!isNaN(n) && n >= 1 && n <= 5) minLlmScore = n;
+    } else if (key === 'from') {
+      // Accept YYYY, YYYY-MM, or YYYY-MM-DD
+      if (/^\d{4}(-\d{2}(-\d{2})?)?$/.test(val)) from = val;
     }
   }
 
-  return { status, limit, days, week, track, searchQuery, minLlmScore };
+  return { status, limit, days, week, track, from };
 }
 
 /**
@@ -255,7 +243,24 @@ export function parseFeedbackMessage(text: string): ParseResult {
 
   // ── Query commands (no arxiv ID required) ────────────────────────────
   if (QUERY_COMMANDS.has(command)) {
-    const { status, limit, days, week, track, searchQuery, minLlmScore } = parseQueryFlags(rest);
+    // For /search, split the query text from the --flags.
+    // Everything before the first "--flag" is the search query.
+    let searchQuery: string | null = null;
+    let flagInput = rest;
+
+    if (command === 'search') {
+      const flagIdx = rest.search(/--[\w-]+/);
+      if (flagIdx === -1) {
+        // No flags — all of rest is the query
+        searchQuery = rest.trim() || null;
+        flagInput = '';
+      } else {
+        searchQuery = rest.slice(0, flagIdx).trim() || null;
+        flagInput = rest.slice(flagIdx);
+      }
+    }
+
+    const { status, limit, days, week, track, from } = parseQueryFlags(flagInput);
     return {
       ok: true,
       kind: 'query' as const,
@@ -267,7 +272,7 @@ export function parseFeedbackMessage(text: string): ParseResult {
         week,
         track,
         searchQuery,
-        minLlmScore,
+        from,
         raw: trimmed,
       },
     };
