@@ -229,6 +229,51 @@ Options: /recommend --limit 10 · /recommend --track LLM
 
 ---
 
+### `/preview`
+
+**What would tomorrow's digest look like, right now?** Runs the full selection pipeline — scoring, dedup, per-track caps — against the current paper queue without marking anything as sent. Perfect for a morning sanity check before the digest fires.
+
+```
+/preview
+/preview --track LLM
+```
+
+**Options:**
+
+| Flag | Values | Default | Description |
+|------|--------|---------|-------------|
+| `--track` | string | — | Filter preview to one track (case-insensitive substring) |
+
+**Example reply:**
+```
+🔭 Digest preview — 2026-02-28
+14 candidates in queue → 8 would be selected across 3 track(s)
+
+📂 LLM Engineering (3)
+  • Fast Speculative Inference for LLMs
+    relevance: 4/5 • matched: speculative, inference
+    https://arxiv.org/abs/2601.12345
+    We propose a speculative decoding method that…
+
+📂 Agent Architectures (3)
+  • Tool-Augmented Agents with Memory
+    relevance: 5/5 • matched: agent, tool-use, memory
+    https://arxiv.org/abs/2601.23456
+    ...
+
+───
+This is a preview — nothing has been marked as sent.
+```
+
+**What it tells you:**
+- How many papers are in the eligible candidate pool (not deduped, not recently sent, LLM score > 2)
+- Exactly which papers would be selected, grouped by track, with relevance scores and matched terms
+- Whether the queue is healthy — if it shows "📭 queue is empty", the digest will be sparse or empty
+
+**CLI equivalent:** `npm run preview` (or `npm run preview -- --track LLM`)
+
+---
+
 ### `/search <query>`
 
 Full-text search over the entire paper corpus. Useful when you want to explore a specific topic on demand.
@@ -299,6 +344,7 @@ Both are equivalent.
 | `/weekly` | ❌ | — | Weekly paper summary (current or given ISO week) |
 | `/search <query>` | ❌ | — | FTS5 full-text search over corpus |
 | `/recommend` | ❌ | — | Personalised recommendations from feedback history |
+| `/preview` | ❌ | — | Dry-run of tomorrow's digest (no DB writes) |
 
 ---
 
@@ -324,7 +370,7 @@ Commands are handled by OpenClaw via a heartbeat rule in `HEARTBEAT.md`:
 
 ```
 When a message starts with /read, /save, /skip, /love, /meh,
-/reading-list, /status, or /stats:
+/reading-list, /status, /stats, /preview:
 
   cd /root/.openclaw/workspace/projects/arxiv-coach
   echo "<message>" | npm run handle-feedback --

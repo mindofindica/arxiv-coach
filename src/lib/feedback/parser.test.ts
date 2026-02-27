@@ -257,3 +257,41 @@ describe('parseFeedbackMessage', () => {
     if (!r.ok) expect(r.error).toBe('unknown_command');
   });
 });
+
+// ── /preview command ──────────────────────────────────────────────────────
+
+describe('/preview command', () => {
+  it('parses bare /preview command', () => {
+    const r = parseFeedbackMessage('/preview');
+    expect(r.ok).toBe(true);
+    if (r.ok && r.kind === 'query') {
+      expect(r.query.command).toBe('preview');
+      expect(r.query.track).toBeNull();
+    }
+  });
+
+  it('parses /preview with --track flag', () => {
+    const r = parseFeedbackMessage('/preview --track LLM');
+    expect(r.ok).toBe(true);
+    if (r.ok && r.kind === 'query') {
+      expect(r.query.command).toBe('preview');
+      expect(r.query.track).toBe('LLM');
+    }
+  });
+
+  it('parses /preview with multi-word track name', () => {
+    const r = parseFeedbackMessage('/preview --track "Agent Architectures"');
+    expect(r.ok).toBe(true);
+    if (r.ok && r.kind === 'query') {
+      expect(r.query.track).toBe('Agent Architectures');
+    }
+  });
+
+  it('stores raw message', () => {
+    const r = parseFeedbackMessage('/preview --track LLM');
+    expect(r.ok).toBe(true);
+    if (r.ok && r.kind === 'query') {
+      expect(r.query.raw).toBe('/preview --track LLM');
+    }
+  });
+});

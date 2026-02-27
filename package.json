@@ -24,6 +24,7 @@
     "plan-weekly-shortlist": "tsx src/scripts/plan-weekly-shortlist.ts",
     "plan-weekly": "tsx src/scripts/plan-weekly.ts",
     "mark-weekly-sent": "tsx src/scripts/mark-weekly-sent.ts",
+    "preview": "tsx src/scripts/query-preview.ts",
     "plan-score": "tsx src/scripts/plan-score.ts",
     "record-scores": "tsx src/scripts/record-scores.ts",
     "record-gap": "tsx src/scripts/record-gap.ts",
