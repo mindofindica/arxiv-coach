@@ -29,8 +29,7 @@
 import path from 'node:path';
 import { loadConfig } from '../lib/config.js';
 import { openDb, migrate } from '../lib/db.js';
-import { searchPapers } from '../lib/query/search-papers.js';
-import { renderSearchMessage } from '../lib/query/render-search.js';
+import { searchPapers, renderSearchMessage } from '../lib/search/search.js';
 
 // ─── Arg parsing ──────────────────────────────────────────────────────────────
 
@@ -96,7 +95,8 @@ async function main() {
   const db = openDb(dbPath);
   migrate(db);
 
-  const response = searchPapers(db, query, {
+  const response = searchPapers(db, {
+    query,
     limit,
     minLlmScore,
     track,
