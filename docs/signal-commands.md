@@ -185,6 +185,72 @@ Top tracks (by paper count):
 
 ---
 
+### `/recommend`
+
+Personalised paper recommendations based on your positive feedback history. Looks at papers you've loved, saved, and added to your reading list at high priority — then finds corpus papers with similar themes you haven't seen yet.
+
+```
+/recommend
+/recommend --limit 10
+/recommend --track LLM
+```
+
+**Options:**
+
+| Flag | Values | Default | Description |
+|------|--------|---------|-------------|
+| `--limit` | 1–20 | `5` | Max recommendations to return |
+| `--track` | string | — | Filter to a specific track (case-insensitive substring) |
+
+**Example reply:**
+```
+🔮 5 picks based on 12 papers you loved/saved:
+   Profile: speculative, decoding, inference, attention, transformer
+
+1. Fast Speculative Inference for LLMs [LLM Efficiency] ★4
+   2026-01-15 · arxiv:2601.12345
+2. Attention-Optimised Decoder Architectures [LLM] ★5
+   2026-01-12 · arxiv:2601.23456
+...
+
+Commands: /love <id> · /save <id> · /skip <id>
+Options: /recommend --limit 10 · /recommend --track LLM
+```
+
+**How it works:**
+1. Collects "seed" papers: anything you've loved, saved, or added to your reading list with priority ≥ 7
+2. Extracts topic keywords from seed paper titles (stop-word filtered)
+3. Runs an FTS5 query to find corpus papers matching those keywords
+4. Excludes papers already seen in digests, in your reading list, or previously rated
+5. Re-ranks by FTS relevance + LLM score + recency
+6. Returns the top-N unseen papers most aligned with your taste profile
+
+**When it says "not enough data":** Send `/love` or `/save` on a few papers you genuinely liked — that's the minimum signal needed to build a recommendation profile.
+
+---
+
+### `/search <query>`
+
+Full-text search over the entire paper corpus. Useful when you want to explore a specific topic on demand.
+
+```
+/search speculative decoding
+/search "retrieval augmented generation"
+/search LoRA fine-tuning --limit 10
+/search agent --track LLM
+/search RLHF --from 2026
+```
+
+**Options:**
+
+| Flag | Values | Default | Description |
+|------|--------|---------|-------------|
+| `--limit` | 1–20 | `5` | Max results to return |
+| `--track` | string | — | Filter to papers in a specific track |
+| `--from` | YYYY, YYYY-MM | — | Only papers published on or after this date |
+
+---
+
 ## ArXiv ID Formats
 
 All feedback commands accept the same ID formats:
@@ -230,6 +296,9 @@ Both are equivalent.
 | `/reading-list` | ❌ | — | Show saved papers |
 | `/status` | ❌ | — | System health snapshot |
 | `/stats` | ❌ | — | Weekly activity breakdown |
+| `/weekly` | ❌ | — | Weekly paper summary (current or given ISO week) |
+| `/search <query>` | ❌ | — | FTS5 full-text search over corpus |
+| `/recommend` | ❌ | — | Personalised recommendations from feedback history |
 
 ---
 
