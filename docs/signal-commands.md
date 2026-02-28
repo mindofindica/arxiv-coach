@@ -249,6 +249,58 @@ Paper-not-found usually means the paper hasn't been ingested yet (digest hasn't 
 
 ---
 
+## `/trends`
+
+Analyses which research topics are rising, falling, or stable in your personal reading history. Uses keyword extraction from paper titles, weighted by feedback type, bucketed by calendar time.
+
+```
+/trends
+/trends --weeks 4
+/trends --weeks 12
+/trends --limit 5
+```
+
+**Flags:**
+- `--weeks N` — look-back window (default: 8, max: 52)
+- `--limit N` — max keywords per category (default: 5)
+
+**Output:**
+
+```
+📊 Your Research Trends (8w: 2026-01-03 → 2026-02-28)
+Analysed 42 papers with feedback
+
+📈 Rising topics
+  🆕  kolmogorov-arnold
+  +180%  speculative decoding
+  +95%  tool use
+
+📉 Fading topics
+  🔇  bert
+  -65%  vision transformers
+
+➡️  Stable interests
+  reinforcement learning · alignment · fine-tuning · lora
+
+Tip: /trends --weeks 4 for a tighter window, /trends --weeks 12 for broader view
+```
+
+**How it works:**
+1. Pulls all papers with feedback in the look-back window
+2. Extracts meaningful keywords and bigrams from paper titles
+3. Splits the window into older half / recent half (by calendar midpoint)
+4. Computes weighted score per keyword in each half (love=3×, save/read=2×, meh=1×, skip=0×)
+5. Keywords with ≥30% increase → rising; ≥30% decrease → falling; otherwise stable
+6. 🆕 = emerged entirely in the recent half; 🔇 = disappeared from recent half
+
+**CLI equivalent:**
+```bash
+npm run trends
+npm run trends -- --weeks 4 --limit 15 --json
+```
+
+---
+
 ## Integration
 
 Commands are handled by OpenClaw via a heartbeat rule in `HEARTBEAT.md`:
