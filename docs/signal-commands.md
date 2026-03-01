@@ -301,6 +301,47 @@ npm run trends -- --weeks 4 --limit 15 --json
 
 ---
 
+## `/digest [track] [--limit N] [--min-score N] [--dedup true]`
+
+Trigger an on-demand digest right now, without waiting for the next scheduled run.
+
+```
+/digest
+/digest LLM
+/digest LLM --limit 5
+/digest --track "LLM Efficiency"
+/digest --min-score 4
+/digest --dedup true
+```
+
+**Key features:**
+- Returns your most relevant unread papers immediately
+- Optional positional track arg (e.g. `/digest LLM`) OR `--track "full name"` for exact match
+- By default **ignores the dedup window** — you see papers even if they were in yesterday's digest
+- `--dedup true` reinstates the 24-hour dedup window if you want truly fresh-only results
+- `--limit N` controls how many papers to return (1–20, default 10)
+- `--min-score N` sets the minimum LLM relevance score (1–5, default 3)
+
+**When to use it:**
+- After a busy week when you missed your daily digests
+- To test a new track configuration immediately
+- When you want papers on a specific topic right now
+
+**Output format:**
+```
+📬 On-demand digest — LLM (5 papers)
+
+▸ LLM Efficiency
+• Efficient Attention via Low-Rank Decomposition
+  https://arxiv.org/abs/2403.12345
+  relevance: 5/5 • matched: attention, efficiency
+  We propose a method that reduces...
+
+Use /read /save /love <arxiv-id> to give feedback.
+```
+
+---
+
 ## Integration
 
 Commands are handled by OpenClaw via a heartbeat rule in `HEARTBEAT.md`:

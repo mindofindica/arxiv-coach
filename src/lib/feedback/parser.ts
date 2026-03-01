@@ -36,7 +36,7 @@
  */
 
 export type FeedbackType = 'read' | 'skip' | 'save' | 'love' | 'meh';
-export type QueryCommand = 'reading-list' | 'status' | 'stats' | 'weekly' | 'search' | 'trends';
+export type QueryCommand = 'reading-list' | 'status' | 'stats' | 'weekly' | 'search' | 'trends' | 'digest';
 
 export interface ParsedFeedback {
   feedbackType: FeedbackType;
@@ -68,6 +68,16 @@ export interface ParsedQuery {
    * Only papers published on or after this prefix are included.
    */
   from: string | null;
+  /**
+   * Minimum LLM relevance score (1–5) for /digest results.
+   * Default: 3.
+   */
+  minScore: number;
+  /**
+   * Whether /digest should respect the dedup window (exclude papers sent in last 24h).
+   * Default: false (bypass dedup for on-demand use).
+   */
+  respectDedup: boolean;
   raw: string;
 }
 
@@ -101,7 +111,7 @@ const ARXIV_URL_RE = /https?:\/\/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})(v\d+)
 const ARXIV_PREFIX_RE = /\barxiv:(\d{4}\.\d{4,5})(v\d+)?\b/i;
 
 const FEEDBACK_COMMANDS: Set<string> = new Set(['read', 'skip', 'save', 'love', 'meh']);
-const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats', 'weekly', 'search', 'trends']);
+const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats', 'weekly', 'search', 'trends', 'digest']);
 
 /**
  * Extract and normalise an arxiv ID from a string fragment.
@@ -184,6 +194,8 @@ function parseQueryFlags(flagStr: string): {
   week: string | null;
   track: string | null;
   from: string | null;
+  minScore: number;
+  respectDedup: boolean;
 } {
   let status: 'unread' | 'read' | 'all' = 'unread';
   let limit = 5;
@@ -192,6 +204,8 @@ function parseQueryFlags(flagStr: string): {
   let week: string | null = null;
   let track: string | null = null;
   let from: string | null = null;
+  let minScore = 3;
+  let respectDedup = false;
 
   const segments = flagStr.split(/(--[\w-]+)/);
   for (let i = 1; i < segments.length; i += 2) {
@@ -221,10 +235,15 @@ function parseQueryFlags(flagStr: string): {
     } else if (key === 'from') {
       // Accept YYYY, YYYY-MM, or YYYY-MM-DD
       if (/^\d{4}(-\d{2}(-\d{2})?)?$/.test(val)) from = val;
+    } else if (key === 'min-score' || key === 'minScore') {
+      const n = parseInt(val, 10);
+      if (!isNaN(n) && n >= 1 && n <= 5) minScore = n;
+    } else if (key === 'dedup') {
+      respectDedup = val !== 'false' && val !== '0';
     }
   }
 
-  return { status, limit, days, weeks, week, track, from };
+  return { status, limit, days, weeks, week, track, from, minScore, respectDedup };
 }
 
 /**
@@ -267,7 +286,23 @@ export function parseFeedbackMessage(text: string): ParseResult {
       }
     }
 
-    const { status, limit, days, weeks, week, track, from } = parseQueryFlags(flagInput);
+    // For /digest, the optional positional arg is a track name (everything before first --)
+    let digestTrackArg: string | null = null;
+    if (command === 'digest') {
+      const flagIdx = rest.search(/--[\w-]+/);
+      if (flagIdx === -1) {
+        digestTrackArg = rest.trim() || null;
+        flagInput = '';
+      } else {
+        digestTrackArg = rest.slice(0, flagIdx).trim() || null;
+        flagInput = rest.slice(flagIdx);
+      }
+    }
+
+    const { status, limit, days, weeks, week, track: flagTrack, from, minScore, respectDedup } = parseQueryFlags(flagInput);
+    // /digest: positional track arg wins over --track flag
+    const resolvedTrack = command === 'digest' ? (digestTrackArg ?? flagTrack) : flagTrack;
+
     return {
       ok: true,
       kind: 'query' as const,
@@ -278,9 +313,11 @@ export function parseFeedbackMessage(text: string): ParseResult {
         days,
         weeks,
         week,
-        track,
+        track: resolvedTrack,
         searchQuery,
         from,
+        minScore,
+        respectDedup,
         raw: trimmed,
       },
     };
@@ -290,7 +327,7 @@ export function parseFeedbackMessage(text: string): ParseResult {
     return {
       ok: false,
       error: 'unknown_command',
-      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly /search /trends`,
+      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly /search /trends /digest`,
     };
   }
 
