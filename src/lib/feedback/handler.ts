@@ -25,6 +25,7 @@ import { renderWeeklySummaryMessage } from '../query/render-weekly-summary.js';
 import { searchPapers, formatSearchReply } from '../search/search.js';
 import { analyseTrends, formatTrendsReply } from '../trends/trends.js';
 import { runOnDemandDigest } from '../ondemand/ondemand-digest.js';
+import { recommendPapers, formatRecommendReply } from '../recommend/recommend.js';
 import type { Db } from '../db.js';
 
 export interface HandlerOptions {
@@ -519,6 +520,28 @@ function handleOnDemandDigestQuery(db: Db, query: ParsedQuery): HandleResult {
   }
 }
 
+// ── Recommend query ────────────────────────────────────────────────────────
+
+function handleRecommendQuery(db: Db, query: ParsedQuery): HandleResult {
+  const { limit, track } = query;
+
+  try {
+    const resp = recommendPapers(db, { limit, track });
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: formatRecommendReply(resp),
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: `❌ Recommend error: ${msg}`,
+    };
+  }
+}
+
 // ── Handler factory ────────────────────────────────────────────────────────
 
 export function createFeedbackHandler(opts: HandlerOptions = {}) {
@@ -572,6 +595,9 @@ export function createFeedbackHandler(opts: HandlerOptions = {}) {
         }
         if (parsed.query.command === 'digest') {
           return handleOnDemandDigestQuery(db, parsed.query);
+        }
+        if (parsed.query.command === 'recommend') {
+          return handleRecommendQuery(db, parsed.query);
         }
         return { shouldReply: false, wasCommand: false };
       }

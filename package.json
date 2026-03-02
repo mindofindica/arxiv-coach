@@ -33,7 +33,8 @@
     "handle-feedback": "tsx src/scripts/handle-feedback.ts",
     "backfill-digest-papers": "tsx src/scripts/backfill-digest-papers.ts",
     "search": "tsx src/scripts/query-search.ts",
-    "trends": "tsx src/scripts/query-trends.ts"
+"trends": "tsx src/scripts/query-trends.ts",
+    "recommend": "tsx src/scripts/query-recommend.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
@@ -51,3 +52,4 @@
     "zod": "^4.3.6"
   }
 }
+
