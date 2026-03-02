@@ -26,6 +26,7 @@ import { searchPapers, formatSearchReply } from '../search/search.js';
 import { analyseTrends, formatTrendsReply } from '../trends/trends.js';
 import { runOnDemandDigest } from '../ondemand/ondemand-digest.js';
 import { recommendPapers, formatRecommendReply } from '../recommend/recommend.js';
+import { digestPreview, formatPreviewMessage } from '../preview/preview.js';
 import type { Db } from '../db.js';
 
 export interface HandlerOptions {
@@ -542,6 +543,28 @@ function handleRecommendQuery(db: Db, query: ParsedQuery): HandleResult {
   }
 }
 
+function handlePreviewQuery(db: Db, query: ParsedQuery): HandleResult {
+  const { track } = query;
+
+  try {
+    const result = digestPreview(db, {
+      trackFilter: track ?? undefined,
+    });
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: formatPreviewMessage(result),
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: `❌ Preview error: ${msg}`,
+    };
+  }
+}
+
 // ── Handler factory ────────────────────────────────────────────────────────
 
 export function createFeedbackHandler(opts: HandlerOptions = {}) {
@@ -598,6 +621,9 @@ export function createFeedbackHandler(opts: HandlerOptions = {}) {
         }
         if (parsed.query.command === 'recommend') {
           return handleRecommendQuery(db, parsed.query);
+        }
+        if (parsed.query.command === 'preview') {
+          return handlePreviewQuery(db, parsed.query);
         }
         return { shouldReply: false, wasCommand: false };
       }
