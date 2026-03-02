@@ -1,261 +1,290 @@
 /**
- * FTS5 paper search for arxiv-coach.
+ * search — unified FTS5 paper search for arxiv-coach.
  *
- * Exposes `searchPapers` which runs a porter-stemmed full-text query over
- * the `papers_fts` virtual table (title + abstract).  Results are returned
- * newest-first within each FTS rank bucket, optionally filtered by a date
- * window.
+ * Single source of truth for paper search, used by both the Signal handler
+ * and the CLI query script.
  *
- * `formatSearchReply` renders results as a Signal-friendly plain-text message
- * (no markdown tables; short titles; arxiv link on its own line for tap-ability).
+ * Exports:
+ *   searchPapers(db, opts)  — core search function
+ *   sanitiseQuery(raw)      — clean a user-supplied query string for FTS5
+ *   formatSearchReply(resp) — compact Signal-ready plain-text formatter
+ *   renderSearchMessage(resp) — richer Signal-ready formatter with excerpt + URL
+ *   renderSearchCompact(resp) — one-liner summary for debug / logging
+ *
+ * Design:
+ *   • Porter-stemmed FTS5 over title + abstract (via papers_fts virtual table)
+ *   • Ranking: llm_score DESC → keyword_score DESC → FTS rank (best relevance first)
+ *   • Optional filters: date window (from), LLM score threshold (minLlmScore),
+ *     track name (track — applied post-FTS in JS)
+ *   • Graceful degradation: FTS syntax errors return empty results, never throw
+ *   • Signal-safe formatters: no markdown tables, titles truncated, tap-able IDs
  */
 
+import { truncateForSignal } from '../digest/truncate.js';
 import type { Db } from '../db.js';
 
-// ── Types ──────────────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 export interface SearchOptions {
-  /** FTS5 query string (Porter-stemmed by default; supports phrase queries with "...") */
+  /** FTS5 query string. Supports bare keywords (AND) or "phrase search". */
   query: string;
-  /** Maximum results to return (1–20, default 5) */
+  /** Maximum results to return (1–20, default 5). */
   limit?: number;
   /**
-   * ISO date prefix to filter published_at, e.g. "2026" or "2025-10".
+   * ISO date prefix filter, e.g. "2026" or "2025-10".
    * Papers published before this prefix are excluded.
    */
   from?: string | null;
   /**
-   * Track name filter: if set, only papers that matched this track
-   * (have a row in track_matches) are returned.
+   * Track name filter. If set, only papers with a track_matches row whose
+   * track_name contains this string (case-insensitive) are returned.
+   * Applied post-FTS in JS to preserve all track names in results.
    */
   track?: string | null;
+  /**
+   * Minimum LLM relevance score (1–5). Papers with no score or a score below
+   * this threshold are excluded. Applied in SQL for efficiency.
+   */
+  minLlmScore?: number | null;
 }
 
 export interface SearchResult {
+  /** arXiv paper ID, e.g. "2501.12345". */
   arxivId: string;
+  /** Full title. */
   title: string;
-  publishedAt: string;   // ISO 8601
-  abstract: string;      // may be long — callers truncate as needed
-  tracks: string[];      // track names this paper matched (may be empty)
-  llmScore: number | null; // 1–5 LLM relevance score, if scored
+  /** ISO 8601 publication date. */
+  publishedAt: string;
+  /** Full abstract text. */
+  abstract: string;
+  /** First ~200 characters of the abstract (for compact display). */
+  excerpt: string;
+  /** Track names this paper matched (all tracks, regardless of filter). */
+  tracks: string[];
+  /** LLM relevance score (1–5), or null if not scored. */
+  llmScore: number | null;
+  /** LLM reasoning text, or null. */
+  llmReasoning: string | null;
+  /** Highest keyword/track match score (from track_matches.score). */
+  keywordScore: number;
+  /** arXiv abstract URL, e.g. "https://arxiv.org/abs/2501.12345". */
+  absUrl: string;
 }
 
 export interface SearchResponse {
+  /** Discriminant tag for pattern-matching. */
+  kind: 'searchResults';
+  /** Echo of the user's query. */
+  query: string;
+  /** Number of results in this response (≤ limit). */
+  count: number;
+  /**
+   * Total FTS hits before the limit/track filter.
+   * Useful for "showing X of Y" display.
+   */
+  totalCount: number;
   results: SearchResult[];
-  totalCount: number;   // how many FTS hits (before limit/track filter)
-  query: string;        // echo of the query
 }
 
-// ── Row types (SQLite result shapes) ──────────────────────────────────────
+// ── Internal row types ─────────────────────────────────────────────────────────
 
 interface FtsRow {
   arxiv_id: string;
   title: string;
   abstract: string;
   published_at: string;
-}
-
-interface TrackRow {
-  arxiv_id: string;
-  track_name: string;
-}
-
-interface ScoreRow {
-  arxiv_id: string;
-  relevance_score: number;
+  llm_score: number | null;
+  llm_reasoning: string | null;
+  keyword_score: number;
+  tracks_concat: string | null;
 }
 
 interface CountRow {
   n: number;
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Query sanitisation ─────────────────────────────────────────────────────────
 
 /**
  * Sanitise a user query string for safe FTS5 use.
  *
- * Strategy:
- *   - If the query is already wrapped in double-quotes, treat as a phrase
- *     search (most specific) and pass it through.
- *   - Otherwise, strip any stray double-quotes (which would cause FTS5
- *     parse errors if unbalanced) and return the bare keywords.
- *     FTS5 treats space-separated bare keywords as implicit AND — matching
- *     documents that contain all the words, in any order.  This is the most
- *     natural Signal-input behaviour:
+ * Rules:
+ *   - If the query is already wrapped in double-quotes → phrase search, pass through.
+ *   - Otherwise, strip stray double-quotes (prevent FTS5 parse errors if unbalanced).
+ *   - Convert hyphens to spaces: in FTS5 query syntax a leading `-` means NOT,
+ *     so "high-quality" would parse as "high AND NOT quality". Converting to
+ *     spaces gives "high quality" (AND semantics) — more natural for Signal input.
  *
- *     /search speculative decoding     → speculative decoding   (AND)
- *     /search "LoRA fine-tuning"       → "LoRA fine-tuning"     (phrase)
- *     /search RAG retrieval augmented  → RAG retrieval augmented (AND)
+ * Examples:
+ *   sanitiseQuery('speculative decoding')   → 'speculative decoding'   (AND)
+ *   sanitiseQuery('"LoRA fine-tuning"')     → '"LoRA fine-tuning"'     (phrase)
+ *   sanitiseQuery('RAG "augmented"')        → 'RAG augmented'          (stripped)
+ *   sanitiseQuery('high-quality')           → 'high quality'           (hyphen→space)
  */
 export function sanitiseQuery(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return '';
-  // If already properly double-quoted, pass through as phrase search
+  // Already a valid phrase query — pass through
   if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length > 2) {
     return trimmed;
   }
-  // Strip any stray double-quotes (would cause FTS5 parse errors if unbalanced)
-  // Also replace hyphens with spaces: in FTS5 query syntax, a leading `-` means
-  // NOT (e.g. `high-quality` parses as `high AND NOT quality`).
-  // Converting to spaces makes `high-quality` → `high quality` (AND semantics).
-  return trimmed.replace(/"/g, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+  return trimmed
+    .replace(/"/g, '')   // strip stray double-quotes
+    .replace(/-/g, ' ')  // hyphens → spaces (avoid FTS5 NOT operator)
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-// ── Core search function ───────────────────────────────────────────────────
+// ── Core search ────────────────────────────────────────────────────────────────
 
 /**
  * Run a full-text search over the papers corpus.
  *
- * Returns up to `limit` results ranked by FTS score (most relevant first),
- * then by published_at DESC (newest wins on ties).
+ * Ranking order (best first):
+ *   1. LLM relevance score DESC (papers Mikey found excellent bubble up)
+ *   2. Keyword/track score DESC (higher keyword match score)
+ *   3. FTS5 BM25 rank (most textually relevant)
+ *
+ * @param db    Open database connection
+ * @param opts  Search options (query is required)
  */
 export function searchPapers(db: Db, opts: SearchOptions): SearchResponse {
-  const { query, limit = 5, from = null, track = null } = opts;
+  const { query, limit = 5, from = null, track = null, minLlmScore = null } = opts;
 
   const safeQuery = sanitiseQuery(query);
-  if (!safeQuery) {
-    return { results: [], totalCount: 0, query };
-  }
+  const empty: SearchResponse = { kind: 'searchResults', query, count: 0, totalCount: 0, results: [] };
+
+  if (!safeQuery) return empty;
+
   const clampedLimit = Math.max(1, Math.min(20, limit));
 
-  // ── Count total FTS hits (unfiltered by track / from) ─────────────────
+  // ── Build SQL fragments based on active filters ──────────────────────────
+  const whereClauses: string[] = ['papers_fts MATCH ?'];
+  const params: (string | number)[] = [safeQuery];
+
+  if (from) {
+    whereClauses.push('p.published_at >= ?');
+    params.push(from);
+  }
+
+  if (minLlmScore !== null && minLlmScore !== undefined) {
+    whereClauses.push('ls.relevance_score >= ?');
+    params.push(minLlmScore);
+  }
+
+  const whereStr = whereClauses.join('\n    AND ');
+
+  // ── Count total hits (before limit / track filter) ───────────────────────
   let totalCount = 0;
   try {
-    const countSql = from
-      ? `SELECT COUNT(*) as n
-         FROM papers_fts f
-         JOIN papers p ON p.arxiv_id = f.arxiv_id
-         WHERE papers_fts MATCH ?
-           AND p.published_at >= ?`
-      : `SELECT COUNT(*) as n
-         FROM papers_fts
-         WHERE papers_fts MATCH ?`;
-
-    const countRow = (
-      from
-        ? db.sqlite.prepare(countSql).get(safeQuery, from)
-        : db.sqlite.prepare(countSql).get(safeQuery)
-    ) as CountRow | undefined;
-
+    const countSql = `
+      SELECT COUNT(DISTINCT p.arxiv_id) AS n
+      FROM papers_fts fts
+      JOIN papers p ON p.arxiv_id = fts.arxiv_id
+      LEFT JOIN llm_scores ls ON ls.arxiv_id = p.arxiv_id
+      WHERE ${whereStr}
+    `;
+    const countRow = db.sqlite.prepare(countSql).get(...params) as CountRow | undefined;
     totalCount = countRow?.n ?? 0;
   } catch {
-    // FTS syntax error — return zero results gracefully
-    return { results: [], totalCount: 0, query };
+    return empty;
   }
 
-  if (totalCount === 0) {
-    return { results: [], totalCount: 0, query };
-  }
+  if (totalCount === 0) return { ...empty, query };
 
-  // ── Fetch FTS results ──────────────────────────────────────────────────
-  // We fetch more than needed to allow for track filtering, then trim.
-  const fetchLimit = track ? clampedLimit * 5 : clampedLimit;
+  // ── Fetch FTS results ────────────────────────────────────────────────────
+  // Fetch extra results when track filtering so we have enough after the JS filter.
+  const fetchLimit = track ? clampedLimit * 6 : clampedLimit;
 
   let ftsRows: FtsRow[];
   try {
-    const fetchSql = from
-      ? `SELECT f.arxiv_id, p.title, p.abstract, p.published_at
-         FROM papers_fts f
-         JOIN papers p ON p.arxiv_id = f.arxiv_id
-         WHERE papers_fts MATCH ?
-           AND p.published_at >= ?
-         ORDER BY rank, p.published_at DESC
-         LIMIT ?`
-      : `SELECT f.arxiv_id, p.title, p.abstract, p.published_at
-         FROM papers_fts f
-         JOIN papers p ON p.arxiv_id = f.arxiv_id
-         WHERE papers_fts MATCH ?
-         ORDER BY rank, p.published_at DESC
-         LIMIT ?`;
-
-    ftsRows = (
-      from
-        ? db.sqlite.prepare(fetchSql).all(safeQuery, from, fetchLimit)
-        : db.sqlite.prepare(fetchSql).all(safeQuery, fetchLimit)
-    ) as FtsRow[];
+    const fetchSql = `
+      SELECT
+        p.arxiv_id,
+        p.title,
+        p.abstract,
+        p.published_at,
+        ls.relevance_score             AS llm_score,
+        ls.reasoning                   AS llm_reasoning,
+        COALESCE(MAX(tm.score), 0)     AS keyword_score,
+        GROUP_CONCAT(tm.track_name, '|') AS tracks_concat
+      FROM papers_fts fts
+      JOIN papers p ON p.arxiv_id = fts.arxiv_id
+      LEFT JOIN llm_scores ls ON ls.arxiv_id = p.arxiv_id
+      LEFT JOIN track_matches tm ON tm.arxiv_id = p.arxiv_id
+      WHERE ${whereStr}
+      GROUP BY p.arxiv_id
+      ORDER BY
+        ls.relevance_score DESC,
+        keyword_score DESC,
+        rank
+      LIMIT ?
+    `;
+    ftsRows = db.sqlite.prepare(fetchSql).all(...params, fetchLimit) as FtsRow[];
   } catch {
-    return { results: [], totalCount: 0, query };
+    // FTS syntax error — graceful fallback
+    return { ...empty, query };
   }
 
-  if (ftsRows.length === 0) {
-    return { results: [], totalCount, query };
-  }
+  if (ftsRows.length === 0) return { ...empty, query, totalCount };
 
-  // ── Fetch track matches for these papers ───────────────────────────────
-  const arxivIds = ftsRows.map((r) => r.arxiv_id);
-  const placeholders = arxivIds.map(() => '?').join(', ');
-
-  let trackMap: Map<string, string[]> = new Map();
-  try {
-    const trackRows = db.sqlite
-      .prepare(
-        `SELECT arxiv_id, track_name FROM track_matches WHERE arxiv_id IN (${placeholders})`,
-      )
-      .all(...arxivIds) as TrackRow[];
-
-    for (const row of trackRows) {
-      const existing = trackMap.get(row.arxiv_id) ?? [];
-      existing.push(row.track_name);
-      trackMap.set(row.arxiv_id, existing);
-    }
-  } catch {
-    // track_matches may not exist in very old DBs — ignore
-  }
-
-  // ── Fetch LLM scores ───────────────────────────────────────────────────
-  let scoreMap: Map<string, number> = new Map();
-  try {
-    const scoreRows = db.sqlite
-      .prepare(
-        `SELECT arxiv_id, relevance_score FROM llm_scores WHERE arxiv_id IN (${placeholders})`,
-      )
-      .all(...arxivIds) as ScoreRow[];
-
-    for (const row of scoreRows) {
-      scoreMap.set(row.arxiv_id, row.relevance_score);
-    }
-  } catch {
-    // llm_scores may not exist — ignore
-  }
-
-  // ── Assemble results with optional track filter ────────────────────────
-  const results: SearchResult[] = [];
+  // ── Assemble results with optional track filter ──────────────────────────
   const trackLower = track?.toLowerCase() ?? null;
+  const results: SearchResult[] = [];
 
   for (const row of ftsRows) {
     if (results.length >= clampedLimit) break;
 
-    const tracks = trackMap.get(row.arxiv_id) ?? [];
+    const tracks = row.tracks_concat
+      ? row.tracks_concat.split('|').filter(Boolean)
+      : [];
 
     if (trackLower) {
       const hasTrack = tracks.some((t) => t.toLowerCase().includes(trackLower));
       if (!hasTrack) continue;
     }
 
+    const abstract = row.abstract ?? '';
+    const excerpt = abstract.length > 200
+      ? abstract.slice(0, 200).trimEnd() + '…'
+      : abstract;
+
     results.push({
       arxivId: row.arxiv_id,
       title: row.title,
       publishedAt: row.published_at,
-      abstract: row.abstract,
+      abstract,
+      excerpt,
       tracks,
-      llmScore: scoreMap.get(row.arxiv_id) ?? null,
+      llmScore: row.llm_score ?? null,
+      llmReasoning: row.llm_reasoning ?? null,
+      keywordScore: row.keyword_score,
+      absUrl: `https://arxiv.org/abs/${row.arxiv_id}`,
     });
   }
 
-  return { results, totalCount, query };
+  return {
+    kind: 'searchResults',
+    query,
+    count: results.length,
+    totalCount,
+    results,
+  };
 }
 
-// ── Signal formatter ───────────────────────────────────────────────────────
+// ── Signal formatters ──────────────────────────────────────────────────────────
 
 /**
- * Format a search response as a plain-text Signal message.
+ * Format a search response as a compact plain-text Signal message.
+ *
+ * Used by the Signal handler for /search replies.
  *
  * Design constraints:
  *   - No markdown tables (Signal strips them)
  *   - Titles truncated to 65 chars (readable on mobile)
  *   - arxiv ID on its own line (tap-to-copy friendly)
  *   - Track badges in parentheses if present
- *   - LLM score (1–5 ★) when available
+ *   - LLM score (★N) when available
  *   - Footer command hints
  */
 export function formatSearchReply(resp: SearchResponse): string {
@@ -282,18 +311,10 @@ export function formatSearchReply(resp: SearchResponse): string {
   for (let i = 0; i < results.length; i++) {
     const r = results[i]!;
     const num = i + 1;
-
-    // Title: truncate at 65 chars
     const title = r.title.length > 65 ? r.title.slice(0, 62) + '…' : r.title;
-
-    // Date: just YYYY-MM-DD
     const date = r.publishedAt.slice(0, 10);
-
-    // Track badge (first two tracks to keep it short)
     const trackBadge =
       r.tracks.length > 0 ? ` [${r.tracks.slice(0, 2).join(', ')}]` : '';
-
-    // LLM score
     const scoreBadge = r.llmScore !== null ? ` ★${r.llmScore}` : '';
 
     lines.push(`${num}. ${title}${trackBadge}${scoreBadge}`);
@@ -308,4 +329,94 @@ export function formatSearchReply(resp: SearchResponse): string {
   }
 
   return lines.join('\n');
+}
+
+// ── Richer formatter (CLI / query-search) ──────────────────────────────────────
+
+/** Score emoji for LLM relevance score (1–5). */
+function scoreEmoji(score: number | null): string {
+  if (score === null) return '·';
+  if (score >= 5) return '🔥';
+  if (score >= 4) return '⭐';
+  if (score >= 3) return '📌';
+  return '·';
+}
+
+/** Format a single result as 4 lines for Signal. */
+function formatResultRich(result: SearchResult, index: number): string[] {
+  const lines: string[] = [];
+
+  const scoreStr =
+    result.llmScore !== null
+      ? `${scoreEmoji(result.llmScore)} ${result.llmScore}/5`
+      : result.keywordScore > 0
+        ? `kw:${result.keywordScore}`
+        : '·';
+
+  const tracksStr =
+    result.tracks.length > 0 ? result.tracks.slice(0, 2).join(', ') : 'untracked';
+
+  const shortExcerpt =
+    result.excerpt.length > 120
+      ? result.excerpt.slice(0, 117) + '…'
+      : result.excerpt;
+
+  lines.push(`${index + 1}. ${result.title}`);
+  lines.push(`   ${scoreStr} · ${tracksStr}`);
+  lines.push(`   "${shortExcerpt}"`);
+  lines.push(`   ${result.absUrl}`);
+
+  return lines;
+}
+
+/**
+ * Render a SearchResponse as a richer Signal-ready message.
+ *
+ * Includes excerpt preview, score emoji, full arXiv URL.
+ * Used by the CLI query-search script and future rich contexts.
+ *
+ * @returns  { text, truncated } — text is Signal-safe (truncated if too long).
+ */
+export function renderSearchMessage(
+  response: SearchResponse,
+): { text: string; truncated: boolean } {
+  const lines: string[] = [];
+
+  lines.push(`🔍 Search: "${response.query}"`);
+
+  if (response.count === 0) {
+    lines.push('');
+    lines.push('No papers found in your library for this query.');
+    lines.push('');
+    lines.push('Try: /search <shorter term> or /weekly for recent papers');
+    return truncateForSignal(lines.join('\n'));
+  }
+
+  lines.push(`${response.count} result${response.count === 1 ? '' : 's'} from your library:`);
+  lines.push('');
+
+  for (let i = 0; i < response.results.length; i++) {
+    lines.push(...formatResultRich(response.results[i]!, i));
+    if (i < response.results.length - 1) {
+      lines.push('');
+    }
+  }
+
+  lines.push('');
+  lines.push("→ /weekly for this week's papers · /reading-list for saved");
+
+  return truncateForSignal(lines.join('\n'));
+}
+
+/**
+ * Compact one-line summary for testing / logging.
+ */
+export function renderSearchCompact(response: SearchResponse): string {
+  if (response.count === 0) {
+    return `search "${response.query}": no results`;
+  }
+  const topScore = response.results[0]?.llmScore;
+  const scoreStr =
+    topScore !== null && topScore !== undefined ? `, top score ${topScore}/5` : '';
+  return `search "${response.query}": ${response.count} result${response.count === 1 ? '' : 's'}${scoreStr}`;
 }
