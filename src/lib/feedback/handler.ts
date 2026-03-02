@@ -24,6 +24,7 @@ import { getWeeklySummary } from '../query/weekly-summary.js';
 import { renderWeeklySummaryMessage } from '../query/render-weekly-summary.js';
 import { searchPapers, formatSearchReply } from '../search/search.js';
 import { analyseTrends, formatTrendsReply } from '../trends/trends.js';
+import { runOnDemandDigest } from '../ondemand/ondemand-digest.js';
 import type { Db } from '../db.js';
 
 export interface HandlerOptions {
@@ -492,6 +493,32 @@ function handleTrendsQuery(db: Db, query: ParsedQuery): HandleResult {
   }
 }
 
+// ── On-demand digest ───────────────────────────────────────────────────────
+
+function handleOnDemandDigestQuery(db: Db, query: ParsedQuery): HandleResult {
+  try {
+    const result = runOnDemandDigest(db, {
+      track: query.track ?? null,
+      limit: query.limit ?? 10,
+      respectDedup: query.respectDedup ?? false,
+      minScore: query.minScore ?? 3,
+    });
+
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: result.reply,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: `❌ Digest error: ${msg}`,
+    };
+  }
+}
+
 // ── Handler factory ────────────────────────────────────────────────────────
 
 export function createFeedbackHandler(opts: HandlerOptions = {}) {
@@ -542,6 +569,9 @@ export function createFeedbackHandler(opts: HandlerOptions = {}) {
         }
         if (parsed.query.command === 'trends') {
           return handleTrendsQuery(db, parsed.query);
+        }
+        if (parsed.query.command === 'digest') {
+          return handleOnDemandDigestQuery(db, parsed.query);
         }
         return { shouldReply: false, wasCommand: false };
       }
