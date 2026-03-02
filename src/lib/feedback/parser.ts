@@ -36,7 +36,7 @@
  */
 
 export type FeedbackType = 'read' | 'skip' | 'save' | 'love' | 'meh';
-export type QueryCommand = 'reading-list' | 'status' | 'stats' | 'weekly' | 'search';
+export type QueryCommand = 'reading-list' | 'status' | 'stats' | 'weekly' | 'search' | 'trends';
 
 export interface ParsedFeedback {
   feedbackType: FeedbackType;
@@ -52,6 +52,8 @@ export interface ParsedQuery {
   status: 'unread' | 'read' | 'all';  // filter for reading-list
   limit: number;                        // max papers to return (1-20)
   days: number;                         // window for /stats (default 7)
+  /** Number of weeks to look back for /trends (default 8) */
+  weeks: number;
   /** ISO week override for /weekly, e.g. "2026-W07" (default: current week) */
   week: string | null;
   /** Track filter for /weekly or /search, e.g. "LLM" (default: all tracks) */
@@ -99,7 +101,7 @@ const ARXIV_URL_RE = /https?:\/\/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})(v\d+)
 const ARXIV_PREFIX_RE = /\barxiv:(\d{4}\.\d{4,5})(v\d+)?\b/i;
 
 const FEEDBACK_COMMANDS: Set<string> = new Set(['read', 'skip', 'save', 'love', 'meh']);
-const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats', 'weekly', 'search']);
+const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats', 'weekly', 'search', 'trends']);
 
 /**
  * Extract and normalise an arxiv ID from a string fragment.
@@ -178,6 +180,7 @@ function parseQueryFlags(flagStr: string): {
   status: 'unread' | 'read' | 'all';
   limit: number;
   days: number;
+  weeks: number;
   week: string | null;
   track: string | null;
   from: string | null;
@@ -185,6 +188,7 @@ function parseQueryFlags(flagStr: string): {
   let status: 'unread' | 'read' | 'all' = 'unread';
   let limit = 5;
   let days = 7;
+  let weeks = 8;
   let week: string | null = null;
   let track: string | null = null;
   let from: string | null = null;
@@ -207,6 +211,9 @@ function parseQueryFlags(flagStr: string): {
     } else if (key === 'days') {
       const n = parseInt(val, 10);
       if (!isNaN(n) && n >= 1 && n <= 90) days = n;
+    } else if (key === 'weeks') {
+      const n = parseInt(val, 10);
+      if (!isNaN(n) && n >= 1 && n <= 52) weeks = n;
     } else if (key === 'week') {
       if (ISO_WEEK_RE.test(val)) week = val;
     } else if (key === 'track') {
@@ -217,7 +224,7 @@ function parseQueryFlags(flagStr: string): {
     }
   }
 
-  return { status, limit, days, week, track, from };
+  return { status, limit, days, weeks, week, track, from };
 }
 
 /**
@@ -260,7 +267,7 @@ export function parseFeedbackMessage(text: string): ParseResult {
       }
     }
 
-    const { status, limit, days, week, track, from } = parseQueryFlags(flagInput);
+    const { status, limit, days, weeks, week, track, from } = parseQueryFlags(flagInput);
     return {
       ok: true,
       kind: 'query' as const,
@@ -269,6 +276,7 @@ export function parseFeedbackMessage(text: string): ParseResult {
         status,
         limit,
         days,
+        weeks,
         week,
         track,
         searchQuery,
@@ -282,7 +290,7 @@ export function parseFeedbackMessage(text: string): ParseResult {
     return {
       ok: false,
       error: 'unknown_command',
-      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly /search`,
+      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly /search /trends`,
     };
   }
 
