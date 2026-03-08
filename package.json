@@ -32,6 +32,7 @@
     "mark-gap-lesson-sent": "tsx src/scripts/mark-gap-lesson-sent.ts",
     "handle-feedback": "tsx src/scripts/handle-feedback.ts",
     "backfill-digest-papers": "tsx src/scripts/backfill-digest-papers.ts",
+    "generate-summaries": "tsx src/scripts/generate-summaries.ts",
     "search": "tsx src/scripts/query-search.ts",
     "recommend": "tsx src/scripts/query-recommend.ts"
   },
