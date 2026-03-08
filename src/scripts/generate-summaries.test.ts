@@ -9,12 +9,14 @@ import {
   VARIANT_PROMPTS,
   buildUserMessage,
   fetchPapersByArxivIds,
+  loadDigestEntriesFromDb,
   loadOpenRouterKeyFromProfiles,
   loadScoredPapersFromDb,
   loadWeeklyShortlistArxivIds,
   mergePapers,
   processPaper,
   runGenerateSummaries,
+  syncDigestEntries,
   type PaperRecord,
   type VariantName,
 } from './generate-summaries.js';
@@ -36,7 +38,12 @@ function seedDb(dbPath: string) {
       abstract TEXT NOT NULL,
       authors_json TEXT NOT NULL,
       categories_json TEXT NOT NULL,
-      published_at TEXT NOT NULL
+      published_at TEXT NOT NULL,
+      ingested_at TEXT NOT NULL
+    );
+    CREATE TABLE track_matches (
+      arxiv_id TEXT NOT NULL,
+      track_name TEXT NOT NULL
     );
     CREATE TABLE llm_scores (
       arxiv_id TEXT PRIMARY KEY,
@@ -133,14 +140,14 @@ describe('database loading', () => {
     const old = new Date('2026-03-01T10:00:00.000Z').toISOString();
 
     db.prepare(
-      'INSERT INTO papers (arxiv_id,title,abstract,authors_json,categories_json,published_at) VALUES (?,?,?,?,?,?)'
-    ).run('2501.00001', 'Good Paper', 'A', '["A"]', '["cs.AI"]', now.toISOString());
+      'INSERT INTO papers (arxiv_id,title,abstract,authors_json,categories_json,published_at,ingested_at) VALUES (?,?,?,?,?,?,?)'
+    ).run('2501.00001', 'Good Paper', 'A', '["A"]', '["cs.AI"]', now.toISOString(), now.toISOString());
     db.prepare(
-      'INSERT INTO papers (arxiv_id,title,abstract,authors_json,categories_json,published_at) VALUES (?,?,?,?,?,?)'
-    ).run('2501.00002', 'Low Score Paper', 'B', '["B"]', '["cs.AI"]', now.toISOString());
+      'INSERT INTO papers (arxiv_id,title,abstract,authors_json,categories_json,published_at,ingested_at) VALUES (?,?,?,?,?,?,?)'
+    ).run('2501.00002', 'Low Score Paper', 'B', '["B"]', '["cs.AI"]', now.toISOString(), now.toISOString());
     db.prepare(
-      'INSERT INTO papers (arxiv_id,title,abstract,authors_json,categories_json,published_at) VALUES (?,?,?,?,?,?)'
-    ).run('2501.00003', 'Old Score Paper', 'C', '["C"]', '["cs.AI"]', now.toISOString());
+      'INSERT INTO papers (arxiv_id,title,abstract,authors_json,categories_json,published_at,ingested_at) VALUES (?,?,?,?,?,?,?)'
+    ).run('2501.00003', 'Old Score Paper', 'C', '["C"]', '["cs.AI"]', now.toISOString(), now.toISOString());
 
     db.prepare('INSERT INTO llm_scores (arxiv_id,relevance_score,scored_at) VALUES (?,?,?)').run('2501.00001', 4, recent);
     db.prepare('INSERT INTO llm_scores (arxiv_id,relevance_score,scored_at) VALUES (?,?,?)').run('2501.00002', 2, recent);
@@ -161,11 +168,11 @@ describe('database loading', () => {
     const db = seedDb(dbPath);
 
     db.prepare(
-      'INSERT INTO papers (arxiv_id,title,abstract,authors_json,categories_json,published_at) VALUES (?,?,?,?,?,?)'
-    ).run('2501.11111', 'Wanted', 'Wanted abstract', '["A"]', '["cs.AI"]', '2026-03-07');
+      'INSERT INTO papers (arxiv_id,title,abstract,authors_json,categories_json,published_at,ingested_at) VALUES (?,?,?,?,?,?,?)'
+    ).run('2501.11111', 'Wanted', 'Wanted abstract', '["A"]', '["cs.AI"]', '2026-03-07', '2026-03-07T10:00:00.000Z');
     db.prepare(
-      'INSERT INTO papers (arxiv_id,title,abstract,authors_json,categories_json,published_at) VALUES (?,?,?,?,?,?)'
-    ).run('2501.22222', 'Other', 'Other abstract', '["B"]', '["cs.CL"]', '2026-03-07');
+      'INSERT INTO papers (arxiv_id,title,abstract,authors_json,categories_json,published_at,ingested_at) VALUES (?,?,?,?,?,?,?)'
+    ).run('2501.22222', 'Other', 'Other abstract', '["B"]', '["cs.CL"]', '2026-03-07', '2026-03-07T10:00:00.000Z');
 
     db.close();
 
@@ -259,8 +266,8 @@ describe('variant generation behavior', () => {
     const db = seedDb(dbPath);
     const recent = new Date('2026-03-08T10:00:00.000Z').toISOString();
     db.prepare(
-      'INSERT INTO papers (arxiv_id,title,abstract,authors_json,categories_json,published_at) VALUES (?,?,?,?,?,?)'
-    ).run('2501.33333', 'Scored paper', 'Abstract', '["A"]', '["cs.AI"]', '2026-03-08');
+      'INSERT INTO papers (arxiv_id,title,abstract,authors_json,categories_json,published_at,ingested_at) VALUES (?,?,?,?,?,?,?)'
+    ).run('2501.33333', 'Scored paper', 'Abstract', '["A"]', '["cs.AI"]', '2026-03-08', '2026-03-08T10:00:00.000Z');
     db.prepare('INSERT INTO llm_scores (arxiv_id,relevance_score,scored_at) VALUES (?,?,?)').run('2501.33333', 4, recent);
     db.close();
 
@@ -281,6 +288,129 @@ describe('variant generation behavior', () => {
     expect(summary.ok).toBe(true);
     expect(summary.papersProcessed).toBe(1);
     expect(summary.variantsGenerated).toBe(0);
+    expect(summary.digestEntriesSynced).toBe(0);
+
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe('digest sync', () => {
+  it('loads digest entries for papers scored >= 3 in last 2 days', () => {
+    const dir = mkTmpDir();
+    const dbPath = path.join(dir, 'db.sqlite');
+    const db = seedDb(dbPath);
+    const now = new Date('2026-03-08T12:00:00.000Z');
+
+    db.prepare(
+      'INSERT INTO papers (arxiv_id,title,abstract,authors_json,categories_json,published_at,ingested_at) VALUES (?,?,?,?,?,?,?)'
+    ).run('2503.00001', 'Good', 'A', '["X"]', '["cs.AI"]', '2026-03-08', '2026-03-08T08:00:00.000Z');
+    db.prepare(
+      'INSERT INTO papers (arxiv_id,title,abstract,authors_json,categories_json,published_at,ingested_at) VALUES (?,?,?,?,?,?,?)'
+    ).run('2503.00002', 'Low', 'B', '["Y"]', '["cs.AI"]', '2026-03-08', '2026-03-08T08:00:00.000Z');
+    db.prepare(
+      'INSERT INTO papers (arxiv_id,title,abstract,authors_json,categories_json,published_at,ingested_at) VALUES (?,?,?,?,?,?,?)'
+    ).run('2503.00003', 'Old', 'C', '["Z"]', '["cs.AI"]', '2026-03-08', '2026-03-01T08:00:00.000Z');
+
+    db.prepare('INSERT INTO track_matches (arxiv_id, track_name) VALUES (?, ?)').run('2503.00001', 'agents');
+    db.prepare('INSERT INTO track_matches (arxiv_id, track_name) VALUES (?, ?)').run('2503.00002', 'agents');
+    db.prepare('INSERT INTO track_matches (arxiv_id, track_name) VALUES (?, ?)').run('2503.00003', 'rag');
+
+    db.prepare('INSERT INTO llm_scores (arxiv_id,relevance_score,scored_at) VALUES (?,?,?)').run(
+      '2503.00001',
+      4,
+      '2026-03-08T09:00:00.000Z'
+    );
+    db.prepare('INSERT INTO llm_scores (arxiv_id,relevance_score,scored_at) VALUES (?,?,?)').run(
+      '2503.00002',
+      2,
+      '2026-03-08T09:00:00.000Z'
+    );
+    db.prepare('INSERT INTO llm_scores (arxiv_id,relevance_score,scored_at) VALUES (?,?,?)').run(
+      '2503.00003',
+      5,
+      '2026-03-08T09:00:00.000Z'
+    );
+    db.close();
+
+    const rows = loadDigestEntriesFromDb(dbPath, now);
+    expect(rows).toEqual([{ arxiv_id: '2503.00001', track_name: 'agents', relevance_score: 4 }]);
+
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('syncs digest entries to Supabase with upsert conflict keys', async () => {
+    const dir = mkTmpDir();
+    const dbPath = path.join(dir, 'db.sqlite');
+    const db = seedDb(dbPath);
+    const now = new Date('2026-03-08T12:00:00.000Z');
+
+    db.prepare(
+      'INSERT INTO papers (arxiv_id,title,abstract,authors_json,categories_json,published_at,ingested_at) VALUES (?,?,?,?,?,?,?)'
+    ).run('2503.11111', 'Paper', 'A', '["X"]', '["cs.AI"]', '2026-03-08', '2026-03-08T08:00:00.000Z');
+    db.prepare('INSERT INTO track_matches (arxiv_id, track_name) VALUES (?, ?)').run('2503.11111', 'tooling');
+    db.prepare('INSERT INTO llm_scores (arxiv_id,relevance_score,scored_at) VALUES (?,?,?)').run(
+      '2503.11111',
+      5,
+      '2026-03-08T09:00:00.000Z'
+    );
+    db.close();
+
+    const fetchImpl = vi.fn(async (_input: string | URL, init?: RequestInit) => {
+      expect(String(_input)).toContain('/rest/v1/paper_digest_entries?on_conflict=date,arxiv_id,track');
+      expect(init?.method).toBe('POST');
+      expect(init?.headers).toMatchObject({
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      });
+
+      const parsed = JSON.parse(String(init?.body)) as Array<Record<string, unknown>>;
+      expect(parsed).toEqual([
+        {
+          date: '2026-03-08',
+          arxiv_id: '2503.11111',
+          track: 'tooling',
+          llm_score: 5,
+        },
+      ]);
+
+      return new Response('', { status: 201 });
+    });
+
+    const synced = await syncDigestEntries({
+      dbPath,
+      now,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      supabaseCfg: {
+        url: 'https://example.supabase.co',
+        serviceRoleKey: 'service-role',
+      },
+    });
+
+    expect(synced).toBe(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('returns zero and does not call Supabase when no digest rows exist', async () => {
+    const dir = mkTmpDir();
+    const dbPath = path.join(dir, 'db.sqlite');
+    const db = seedDb(dbPath);
+    db.close();
+
+    const fetchImpl = vi.fn();
+
+    const synced = await syncDigestEntries({
+      dbPath,
+      now: new Date('2026-03-08T12:00:00.000Z'),
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      supabaseCfg: {
+        url: 'https://example.supabase.co',
+        serviceRoleKey: 'service-role',
+      },
+    });
+
+    expect(synced).toBe(0);
+    expect(fetchImpl).not.toHaveBeenCalled();
 
     fs.rmSync(dir, { recursive: true, force: true });
   });

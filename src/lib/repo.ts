@@ -3,6 +3,7 @@ import type { AppConfig } from './types.js';
 import { ensureDir, paperPaths } from './storage.js';
 import type { ArxivEntry } from './arxiv.js';
 import type { Db } from './db.js';
+import { syncPaperToSupabase } from './supabase-sync.js';
 
 export interface MatchedPaper {
   arxiv_id: string;
@@ -64,6 +65,9 @@ export function upsertPaper(db: Db, config: AppConfig, entry: ArxivEntry) {
     `INSERT OR IGNORE INTO paper_versions (arxiv_id, version, updated_at, pdf_sha256, created_at)
      VALUES (?, ?, ?, ?, ?)`
   ).run(entry.arxivId, entry.version, entry.updatedAt, null, now);
+
+  // Fire-and-forget sync to Supabase so PaperBrief stays up to date
+  syncPaperToSupabase(entry).catch(() => { /* non-fatal */ });
 }
 
 export function upsertTrackMatch(db: Db, arxivId: string, trackName: string, score: number, matchedTerms: string[]) {

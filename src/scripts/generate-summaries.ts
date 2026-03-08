@@ -17,11 +17,26 @@ export interface RunSummary {
   papersProcessed: number;
   variantsGenerated: number;
   skipped: number;
+  digestEntriesSynced: number;
 }
 
 interface SupabaseConfig {
   url: string;
   serviceRoleKey: string;
+}
+
+interface DigestEntryRow {
+  arxiv_id: string;
+  track_name: string;
+  relevance_score: number;
+}
+
+interface SyncDigestDeps {
+  dbPath: string;
+  now?: Date;
+  fetchImpl: typeof fetch;
+  supabaseCfg: SupabaseConfig;
+  log?: Pick<typeof console, 'warn' | 'error'>;
 }
 
 interface RunDeps {
@@ -56,7 +71,7 @@ const AUTH_PROFILES_PATH = '/root/.openclaw/agents/main/agent/auth-profiles.json
 
 const SUPABASE_URL_DEFAULT = 'https://otekgfkmkrpwidqjslmo.supabase.co';
 const SUPABASE_SERVICE_ROLE_KEY_DEFAULT =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90ZWtnZmtta3Jwd2lkcWpzbG1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDM4OTQxMywiZXBweCI6MjA4NTk2NTQxM30.zC2eYw-blNee95tkrEGlVMzWEYvpofiAyB3StWT2eAY';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90ZWtnZmtta3Jwd2lkcWpzbG1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDM4OTQxMywiZXhwIjoyMDg1OTY1NDEzfQ.zC2eYw-blNee95tkrEGlVMzWEYvpofiAyB3StWT2eAY';
 
 function parseStringArray(raw: unknown): string[] {
   if (Array.isArray(raw)) {
@@ -248,6 +263,47 @@ export function fetchPapersByArxivIds(dbPath: string, arxivIds: string[]): Paper
   }
 }
 
+export function loadDigestEntriesFromDb(dbPath: string, now = new Date()): DigestEntryRow[] {
+  if (!fs.existsSync(dbPath)) return [];
+  const stat = fs.statSync(dbPath);
+  if (stat.size <= 0) return [];
+
+  const db = new Database(dbPath, { readonly: true });
+
+  try {
+    if (!tableExists(db, 'papers') || !tableExists(db, 'track_matches') || !tableExists(db, 'llm_scores')) return [];
+
+    const rows = db
+      .prepare(
+        `SELECT tm.arxiv_id, p.title, p.abstract, p.authors_json, p.categories_json,
+          p.published_at, tm.track_name, ls.relevance_score
+        FROM track_matches tm
+        JOIN papers p ON p.arxiv_id = tm.arxiv_id
+        LEFT JOIN llm_scores ls ON ls.arxiv_id = tm.arxiv_id
+        WHERE ls.relevance_score >= 3
+          AND date(p.ingested_at) >= date(?, '-2 days')
+        ORDER BY ls.relevance_score DESC, p.published_at DESC`
+      )
+      .all(now.toISOString().slice(0, 10)) as Array<Record<string, unknown>>;
+
+    return rows
+      .map((row) => ({
+        arxiv_id: typeof row.arxiv_id === 'string' ? row.arxiv_id : '',
+        track_name: typeof row.track_name === 'string' ? row.track_name : '',
+        relevance_score: typeof row.relevance_score === 'number' ? row.relevance_score : Number(row.relevance_score),
+      }))
+      .filter(
+        (row) =>
+          Boolean(row.arxiv_id) &&
+          Boolean(row.track_name) &&
+          Number.isFinite(row.relevance_score) &&
+          row.relevance_score >= 3
+      );
+  } finally {
+    db.close();
+  }
+}
+
 export function loadOpenRouterKeyFromProfiles(filePath: string): string | null {
   if (!fs.existsSync(filePath)) return null;
 
@@ -365,6 +421,29 @@ async function fetchSupabase<T>(opts: {
   return undefined as T;
 }
 
+export async function syncDigestEntries(deps: SyncDigestDeps): Promise<number> {
+  const rows = loadDigestEntriesFromDb(deps.dbPath, deps.now);
+  if (rows.length === 0) return 0;
+
+  const date = (deps.now ?? new Date()).toISOString().slice(0, 10);
+  const payload = rows.map((row) => ({
+    date,
+    arxiv_id: row.arxiv_id,
+    track: row.track_name,
+    llm_score: Math.round(row.relevance_score),
+  }));
+
+  await fetchSupabase<void>({
+    cfg: deps.supabaseCfg,
+    fetchImpl: deps.fetchImpl,
+    method: 'POST',
+    path: 'paper_digest_entries?on_conflict=date,arxiv_id,track',
+    body: payload,
+  });
+
+  return payload.length;
+}
+
 export function mergePapers(scoredPapers: PaperRecord[], weeklyPapers: PaperRecord[]): PaperRecord[] {
   const map = new Map<string, PaperRecord>();
   for (const paper of [...scoredPapers, ...weeklyPapers]) {
@@ -453,14 +532,31 @@ export async function runGenerateSummaries(opts?: {
   const weeklyPapers = chosenDbPath ? fetchPapersByArxivIds(chosenDbPath, weeklyIds) : [];
 
   const papers = mergePapers(scoredPapers, weeklyPapers);
+  let digestEntriesSynced = 0;
 
   if (!apiKey) {
     log.warn('No OpenRouter/Anthropic key found; skipping generation.');
+    if (chosenDbPath) {
+      try {
+        digestEntriesSynced = await syncDigestEntries({
+          dbPath: chosenDbPath,
+          now: opts?.now,
+          fetchImpl,
+          supabaseCfg,
+          log,
+        });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        log.error(`Failed syncing digest entries: ${msg}`);
+      }
+    }
+
     return {
       ok: true,
       papersProcessed: papers.length,
       variantsGenerated: 0,
       skipped: 0,
+      digestEntriesSynced,
     };
   }
 
@@ -534,11 +630,27 @@ export async function runGenerateSummaries(opts?: {
     }
   }
 
+  if (chosenDbPath) {
+    try {
+      digestEntriesSynced = await syncDigestEntries({
+        dbPath: chosenDbPath,
+        now: opts?.now,
+        fetchImpl,
+        supabaseCfg,
+        log,
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      log.error(`Failed syncing digest entries: ${msg}`);
+    }
+  }
+
   return {
     ok: true,
     papersProcessed: papers.length,
     variantsGenerated,
     skipped,
+    digestEntriesSynced,
   };
 }
 
