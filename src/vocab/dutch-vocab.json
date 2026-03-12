@@ -1,0 +1,1410 @@
+{
+  "meta": {
+    "version": 1,
+    "level": "A1-A2",
+    "description": "Curated Dutch vocabulary for daily learning. Thematically organised, phonetic hints use English approximations.",
+    "totalWords": 189
+  },
+  "words": [
+    {
+      "dutch": "goedemorgen",
+      "phonetic": "khoo-duh-MOR-khuh",
+      "english": "good morning",
+      "category": "greetings",
+      "example_nl": "Goedemorgen! Hoe gaat het met jou?",
+      "example_en": "Good morning! How are you?"
+    },
+    {
+      "dutch": "goedemiddag",
+      "phonetic": "khoo-duh-MID-dakh",
+      "english": "good afternoon",
+      "category": "greetings",
+      "example_nl": "Goedemiddag, kan ik u helpen?",
+      "example_en": "Good afternoon, can I help you?"
+    },
+    {
+      "dutch": "goedenavond",
+      "phonetic": "khoo-duh-NAH-vont",
+      "english": "good evening",
+      "category": "greetings",
+      "example_nl": "Goedenavond, welkom thuis!",
+      "example_en": "Good evening, welcome home!"
+    },
+    {
+      "dutch": "tot ziens",
+      "phonetic": "tot ZEENS",
+      "english": "goodbye",
+      "category": "greetings",
+      "example_nl": "Tot ziens, tot morgen!",
+      "example_en": "Goodbye, see you tomorrow!"
+    },
+    {
+      "dutch": "alsjeblieft",
+      "phonetic": "als-yuh-BLEEFT",
+      "english": "please / here you go",
+      "category": "greetings",
+      "example_nl": "Mag ik een kopje koffie, alsjeblieft?",
+      "example_en": "Can I have a cup of coffee, please?"
+    },
+    {
+      "dutch": "dankjewel",
+      "phonetic": "dank-yuh-VEL",
+      "english": "thank you",
+      "category": "greetings",
+      "example_nl": "Dankjewel voor je hulp!",
+      "example_en": "Thank you for your help!"
+    },
+    {
+      "dutch": "sorry",
+      "phonetic": "SOH-ree",
+      "english": "sorry / excuse me",
+      "category": "greetings",
+      "example_nl": "Sorry, ik begrijp het niet.",
+      "example_en": "Sorry, I don't understand."
+    },
+    {
+      "dutch": "hoe gaat het?",
+      "phonetic": "hoo khaht et",
+      "english": "how are you?",
+      "category": "greetings",
+      "example_nl": "Hoi! Hoe gaat het met je?",
+      "example_en": "Hi! How are you?"
+    },
+    {
+      "dutch": "het gaat goed",
+      "phonetic": "et khaht khoot",
+      "english": "I'm doing well",
+      "category": "greetings",
+      "example_nl": "Het gaat goed, dankjewel!",
+      "example_en": "I'm doing well, thank you!"
+    },
+    {
+      "dutch": "welkom",
+      "phonetic": "VEL-kom",
+      "english": "welcome",
+      "category": "greetings",
+      "example_nl": "Welkom in Utrecht!",
+      "example_en": "Welcome to Utrecht!"
+    },
+    {
+      "dutch": "één",
+      "phonetic": "ayn",
+      "english": "one",
+      "category": "numbers",
+      "example_nl": "Ik heb één kat.",
+      "example_en": "I have one cat."
+    },
+    {
+      "dutch": "twee",
+      "phonetic": "tvay",
+      "english": "two",
+      "category": "numbers",
+      "example_nl": "Twee koppen koffie, graag.",
+      "example_en": "Two cups of coffee, please."
+    },
+    {
+      "dutch": "drie",
+      "phonetic": "dree",
+      "english": "three",
+      "category": "numbers",
+      "example_nl": "De trein vertrekt over drie minuten.",
+      "example_en": "The train departs in three minutes."
+    },
+    {
+      "dutch": "vier",
+      "phonetic": "veer",
+      "english": "four",
+      "category": "numbers",
+      "example_nl": "We wonen vier hoog.",
+      "example_en": "We live on the fourth floor."
+    },
+    {
+      "dutch": "vijf",
+      "phonetic": "vayf",
+      "english": "five",
+      "category": "numbers",
+      "example_nl": "Het duurt vijf minuten lopen.",
+      "example_en": "It's a five-minute walk."
+    },
+    {
+      "dutch": "tien",
+      "phonetic": "teen",
+      "english": "ten",
+      "category": "numbers",
+      "example_nl": "Tien euro, alsjeblieft.",
+      "example_en": "Ten euros, please."
+    },
+    {
+      "dutch": "twintig",
+      "phonetic": "TVIN-tikh",
+      "english": "twenty",
+      "category": "numbers",
+      "example_nl": "Ik ben twintig jaar oud.",
+      "example_en": "I am twenty years old."
+    },
+    {
+      "dutch": "honderd",
+      "phonetic": "HON-dert",
+      "english": "hundred",
+      "category": "numbers",
+      "example_nl": "Dat kost honderd euro.",
+      "example_en": "That costs a hundred euros."
+    },
+    {
+      "dutch": "de fiets",
+      "phonetic": "duh FEETS",
+      "english": "the bicycle",
+      "category": "transport",
+      "example_nl": "Ik ga met de fiets naar het werk.",
+      "example_en": "I cycle to work."
+    },
+    {
+      "dutch": "de trein",
+      "phonetic": "duh trayn",
+      "english": "the train",
+      "category": "transport",
+      "example_nl": "De trein naar Amsterdam vertrekt om acht uur.",
+      "example_en": "The train to Amsterdam departs at eight o'clock."
+    },
+    {
+      "dutch": "de bus",
+      "phonetic": "duh bus",
+      "english": "the bus",
+      "category": "transport",
+      "example_nl": "Welke bus gaat naar het centrum?",
+      "example_en": "Which bus goes to the centre?"
+    },
+    {
+      "dutch": "het station",
+      "phonetic": "et stah-SYON",
+      "english": "the station",
+      "category": "transport",
+      "example_nl": "Utrecht Centraal is een groot station.",
+      "example_en": "Utrecht Centraal is a big station."
+    },
+    {
+      "dutch": "het vliegtuig",
+      "phonetic": "et VLEEKH-toygh",
+      "english": "the airplane",
+      "category": "transport",
+      "example_nl": "We gaan met het vliegtuig naar Spanje.",
+      "example_en": "We're flying to Spain."
+    },
+    {
+      "dutch": "links",
+      "phonetic": "links",
+      "english": "left",
+      "category": "transport",
+      "example_nl": "Sla links af bij het verkeerslicht.",
+      "example_en": "Turn left at the traffic light."
+    },
+    {
+      "dutch": "rechts",
+      "phonetic": "rekhts",
+      "english": "right",
+      "category": "transport",
+      "example_nl": "De supermarkt is rechts.",
+      "example_en": "The supermarket is on the right."
+    },
+    {
+      "dutch": "rechtdoor",
+      "phonetic": "REKHT-dohr",
+      "english": "straight ahead",
+      "category": "transport",
+      "example_nl": "Ga rechtdoor tot aan het plein.",
+      "example_en": "Go straight ahead until the square."
+    },
+    {
+      "dutch": "het brood",
+      "phonetic": "et broht",
+      "english": "the bread",
+      "category": "food",
+      "example_nl": "Ik eet elke ochtend brood met kaas.",
+      "example_en": "I eat bread with cheese every morning."
+    },
+    {
+      "dutch": "de kaas",
+      "phonetic": "duh kahs",
+      "english": "the cheese",
+      "category": "food",
+      "example_nl": "Nederlandse kaas is wereldberoemd.",
+      "example_en": "Dutch cheese is world-famous."
+    },
+    {
+      "dutch": "de koffie",
+      "phonetic": "duh KOF-fee",
+      "english": "the coffee",
+      "category": "food",
+      "example_nl": "Wil jij ook koffie? Ik ga een bakje zetten.",
+      "example_en": "Do you want coffee too? I'll make a cup."
+    },
+    {
+      "dutch": "het water",
+      "phonetic": "et VAH-ter",
+      "english": "the water",
+      "category": "food",
+      "example_nl": "Mag ik een glas water?",
+      "example_en": "Can I have a glass of water?"
+    },
+    {
+      "dutch": "de appel",
+      "phonetic": "duh AH-pul",
+      "english": "the apple",
+      "category": "food",
+      "example_nl": "Een appel per dag houdt de dokter weg.",
+      "example_en": "An apple a day keeps the doctor away."
+    },
+    {
+      "dutch": "de aardappel",
+      "phonetic": "duh AHR-dah-pul",
+      "english": "the potato",
+      "category": "food",
+      "example_nl": "Stamppot is een gerecht met aardappelen.",
+      "example_en": "Stamppot is a dish with potatoes."
+    },
+    {
+      "dutch": "het bier",
+      "phonetic": "et beer",
+      "english": "the beer",
+      "category": "food",
+      "example_nl": "Heineken is een bekend Nederlands bier.",
+      "example_en": "Heineken is a well-known Dutch beer."
+    },
+    {
+      "dutch": "de stroopwafel",
+      "phonetic": "duh STROHP-vah-ful",
+      "english": "the syrup waffle",
+      "category": "food",
+      "example_nl": "Leg een stroopwafel op je koffie — het wordt dan lekker zacht.",
+      "example_en": "Put a stroopwafel on your coffee — it gets nicely soft."
+    },
+    {
+      "dutch": "de boterham",
+      "phonetic": "duh BOH-ter-ham",
+      "english": "the sandwich (slice of bread)",
+      "category": "food",
+      "example_nl": "Ik neem een boterham mee naar mijn werk.",
+      "example_en": "I take a sandwich to work."
+    },
+    {
+      "dutch": "de vis",
+      "phonetic": "duh vis",
+      "english": "the fish",
+      "category": "food",
+      "example_nl": "Op vrijdag eet ik graag vis.",
+      "example_en": "I like to eat fish on Fridays."
+    },
+    {
+      "dutch": "het vlees",
+      "phonetic": "et vlays",
+      "english": "the meat",
+      "category": "food",
+      "example_nl": "Ik eet geen vlees — ik ben vegetariër.",
+      "example_en": "I don't eat meat — I'm a vegetarian."
+    },
+    {
+      "dutch": "het werk",
+      "phonetic": "et verk",
+      "english": "the work / job",
+      "category": "work",
+      "example_nl": "Hoe gaat het werk?",
+      "example_en": "How is work going?"
+    },
+    {
+      "dutch": "het kantoor",
+      "phonetic": "et kan-TOHR",
+      "english": "the office",
+      "category": "work",
+      "example_nl": "Morgen werk ik thuis, niet op kantoor.",
+      "example_en": "Tomorrow I'm working from home, not at the office."
+    },
+    {
+      "dutch": "de vergadering",
+      "phonetic": "duh ver-KHAH-de-ring",
+      "english": "the meeting",
+      "category": "work",
+      "example_nl": "De vergadering begint om tien uur.",
+      "example_en": "The meeting starts at ten o'clock."
+    },
+    {
+      "dutch": "de computer",
+      "phonetic": "duh kom-PYOO-ter",
+      "english": "the computer",
+      "category": "work",
+      "example_nl": "Mijn computer doet het vandaag niet.",
+      "example_en": "My computer isn't working today."
+    },
+    {
+      "dutch": "de e-mail",
+      "phonetic": "duh EE-mayl",
+      "english": "the email",
+      "category": "work",
+      "example_nl": "Heb je mijn e-mail ontvangen?",
+      "example_en": "Did you receive my email?"
+    },
+    {
+      "dutch": "het project",
+      "phonetic": "et pro-YEKT",
+      "english": "the project",
+      "category": "work",
+      "example_nl": "We werken aan een nieuw project.",
+      "example_en": "We're working on a new project."
+    },
+    {
+      "dutch": "de collega",
+      "phonetic": "duh ko-LAY-khah",
+      "english": "the colleague",
+      "category": "work",
+      "example_nl": "Mijn collega's zijn erg aardig.",
+      "example_en": "My colleagues are very nice."
+    },
+    {
+      "dutch": "werken",
+      "phonetic": "VER-kuh",
+      "english": "to work",
+      "category": "work",
+      "example_nl": "Ik werk als software engineer.",
+      "example_en": "I work as a software engineer."
+    },
+    {
+      "dutch": "de deadline",
+      "phonetic": "duh DEAD-layn",
+      "english": "the deadline",
+      "category": "work",
+      "example_nl": "De deadline is vrijdag.",
+      "example_en": "The deadline is Friday."
+    },
+    {
+      "dutch": "thuis",
+      "phonetic": "towss",
+      "english": "at home / home",
+      "category": "daily_life",
+      "example_nl": "Ik ben thuis. Kom je langs?",
+      "example_en": "I'm home. Will you come over?"
+    },
+    {
+      "dutch": "de supermarkt",
+      "phonetic": "duh SOO-per-markt",
+      "english": "the supermarket",
+      "category": "daily_life",
+      "example_nl": "Ik ga naar de supermarkt. Wat hebben we nodig?",
+      "example_en": "I'm going to the supermarket. What do we need?"
+    },
+    {
+      "dutch": "het geld",
+      "phonetic": "et khelt",
+      "english": "the money",
+      "category": "daily_life",
+      "example_nl": "Ik heb geen geld meer.",
+      "example_en": "I have no more money."
+    },
+    {
+      "dutch": "de pinpas",
+      "phonetic": "duh PIN-pas",
+      "english": "the debit card",
+      "category": "daily_life",
+      "example_nl": "Accepteert u pinpas?",
+      "example_en": "Do you accept card payment?"
+    },
+    {
+      "dutch": "het weer",
+      "phonetic": "et vayr",
+      "english": "the weather",
+      "category": "daily_life",
+      "example_nl": "Het weer in Nederland is onvoorspelbaar.",
+      "example_en": "The weather in the Netherlands is unpredictable."
+    },
+    {
+      "dutch": "het regent",
+      "phonetic": "et RAY-khent",
+      "english": "it's raining",
+      "category": "daily_life",
+      "example_nl": "Het regent weer. Pak je jas!",
+      "example_en": "It's raining again. Grab your coat!"
+    },
+    {
+      "dutch": "de zon",
+      "phonetic": "duh zon",
+      "english": "the sun",
+      "category": "daily_life",
+      "example_nl": "Eindelijk schijnt de zon!",
+      "example_en": "The sun is finally shining!"
+    },
+    {
+      "dutch": "de sleutel",
+      "phonetic": "duh SLOO-tul",
+      "english": "the key",
+      "category": "daily_life",
+      "example_nl": "Ik kan mijn sleutel niet vinden.",
+      "example_en": "I can't find my key."
+    },
+    {
+      "dutch": "het huis",
+      "phonetic": "et howss",
+      "english": "the house",
+      "category": "daily_life",
+      "example_nl": "Ons huis is in Utrecht.",
+      "example_en": "Our house is in Utrecht."
+    },
+    {
+      "dutch": "de kamer",
+      "phonetic": "duh KAH-mer",
+      "english": "the room",
+      "category": "daily_life",
+      "example_nl": "De woonkamer is groot.",
+      "example_en": "The living room is big."
+    },
+    {
+      "dutch": "de winkel",
+      "phonetic": "duh VIN-kul",
+      "english": "the shop / store",
+      "category": "daily_life",
+      "example_nl": "De winkel sluit om zes uur.",
+      "example_en": "The shop closes at six o'clock."
+    },
+    {
+      "dutch": "goedkoop",
+      "phonetic": "khoot-KOHP",
+      "english": "cheap / inexpensive",
+      "category": "daily_life",
+      "example_nl": "Dit is erg goedkoop!",
+      "example_en": "This is very cheap!"
+    },
+    {
+      "dutch": "duur",
+      "phonetic": "dyoor",
+      "english": "expensive",
+      "category": "daily_life",
+      "example_nl": "Amsterdam is erg duur om te wonen.",
+      "example_en": "Amsterdam is very expensive to live in."
+    },
+    {
+      "dutch": "lekker",
+      "phonetic": "LEK-ker",
+      "english": "nice / tasty / good",
+      "category": "daily_life",
+      "example_nl": "Dat klinkt lekker! / Dit eten is lekker.",
+      "example_en": "That sounds great! / This food is tasty."
+    },
+    {
+      "dutch": "gezellig",
+      "phonetic": "khuh-ZEL-ikh",
+      "english": "cosy / convivial / fun",
+      "category": "daily_life",
+      "example_nl": "Het café was erg gezellig gisteravond.",
+      "example_en": "The café was really cosy last night."
+    },
+    {
+      "dutch": "het café",
+      "phonetic": "et kah-FAY",
+      "english": "the pub / café",
+      "category": "daily_life",
+      "example_nl": "Zullen we naar een café gaan?",
+      "example_en": "Shall we go to a pub?"
+    },
+    {
+      "dutch": "vandaag",
+      "phonetic": "van-DAKH",
+      "english": "today",
+      "category": "time",
+      "example_nl": "Wat doe jij vandaag?",
+      "example_en": "What are you doing today?"
+    },
+    {
+      "dutch": "morgen",
+      "phonetic": "MOR-khuh",
+      "english": "tomorrow / morning",
+      "category": "time",
+      "example_nl": "Tot morgen!",
+      "example_en": "See you tomorrow!"
+    },
+    {
+      "dutch": "gisteren",
+      "phonetic": "KHIS-ter-uh",
+      "english": "yesterday",
+      "category": "time",
+      "example_nl": "Gisteren heb ik veel gewerkt.",
+      "example_en": "I worked a lot yesterday."
+    },
+    {
+      "dutch": "nu",
+      "phonetic": "noo",
+      "english": "now",
+      "category": "time",
+      "example_nl": "Ik ga nu naar bed.",
+      "example_en": "I'm going to bed now."
+    },
+    {
+      "dutch": "later",
+      "phonetic": "LAH-ter",
+      "english": "later",
+      "category": "time",
+      "example_nl": "Ik doe het later wel.",
+      "example_en": "I'll do it later."
+    },
+    {
+      "dutch": "vroeg",
+      "phonetic": "vrookh",
+      "english": "early",
+      "category": "time",
+      "example_nl": "Ik sta graag vroeg op.",
+      "example_en": "I like to get up early."
+    },
+    {
+      "dutch": "laat",
+      "phonetic": "laht",
+      "english": "late",
+      "category": "time",
+      "example_nl": "Sorry, ik ben een beetje laat.",
+      "example_en": "Sorry, I'm a little late."
+    },
+    {
+      "dutch": "de week",
+      "phonetic": "duh vayk",
+      "english": "the week",
+      "category": "time",
+      "example_nl": "Deze week ben ik erg druk.",
+      "example_en": "I'm very busy this week."
+    },
+    {
+      "dutch": "het weekend",
+      "phonetic": "et VEE-kend",
+      "english": "the weekend",
+      "category": "time",
+      "example_nl": "Fijn weekend!",
+      "example_en": "Have a nice weekend!"
+    },
+    {
+      "dutch": "maandag",
+      "phonetic": "MAHN-dakh",
+      "english": "Monday",
+      "category": "time",
+      "example_nl": "Op maandag begin ik vroeg.",
+      "example_en": "On Monday I start early."
+    },
+    {
+      "dutch": "vrijdag",
+      "phonetic": "VRAY-dakh",
+      "english": "Friday",
+      "category": "time",
+      "example_nl": "Vrijdag is mijn favoriete dag van de week.",
+      "example_en": "Friday is my favourite day of the week."
+    },
+    {
+      "dutch": "het jaar",
+      "phonetic": "et yahr",
+      "english": "the year",
+      "category": "time",
+      "example_nl": "Dit jaar wil ik Nederlands leren.",
+      "example_en": "This year I want to learn Dutch."
+    },
+    {
+      "dutch": "de maand",
+      "phonetic": "duh mahnt",
+      "english": "the month",
+      "category": "time",
+      "example_nl": "Welke maand is jouw favoriete?",
+      "example_en": "Which month is your favourite?"
+    },
+    {
+      "dutch": "groot",
+      "phonetic": "khroht",
+      "english": "big / large",
+      "category": "adjectives",
+      "example_nl": "Amsterdam is een grote stad.",
+      "example_en": "Amsterdam is a big city."
+    },
+    {
+      "dutch": "klein",
+      "phonetic": "klayn",
+      "english": "small",
+      "category": "adjectives",
+      "example_nl": "Het appartement is klein maar gezellig.",
+      "example_en": "The apartment is small but cosy."
+    },
+    {
+      "dutch": "mooi",
+      "phonetic": "moy",
+      "english": "beautiful / nice",
+      "category": "adjectives",
+      "example_nl": "Wat een mooi uitzicht!",
+      "example_en": "What a beautiful view!"
+    },
+    {
+      "dutch": "oud",
+      "phonetic": "owt",
+      "english": "old",
+      "category": "adjectives",
+      "example_nl": "Utrecht heeft veel oude gebouwen.",
+      "example_en": "Utrecht has many old buildings."
+    },
+    {
+      "dutch": "nieuw",
+      "phonetic": "nyoo",
+      "english": "new",
+      "category": "adjectives",
+      "example_nl": "Ik heb een nieuwe baan.",
+      "example_en": "I have a new job."
+    },
+    {
+      "dutch": "druk",
+      "phonetic": "druk",
+      "english": "busy",
+      "category": "adjectives",
+      "example_nl": "Sorry, ik ben nu erg druk.",
+      "example_en": "Sorry, I'm very busy right now."
+    },
+    {
+      "dutch": "moe",
+      "phonetic": "moo",
+      "english": "tired",
+      "category": "adjectives",
+      "example_nl": "Ik ben heel moe na het werk.",
+      "example_en": "I'm very tired after work."
+    },
+    {
+      "dutch": "leuk",
+      "phonetic": "luhk",
+      "english": "fun / nice / cool",
+      "category": "adjectives",
+      "example_nl": "Dat klinkt leuk!",
+      "example_en": "That sounds fun!"
+    },
+    {
+      "dutch": "lief",
+      "phonetic": "leef",
+      "english": "sweet / kind / dear",
+      "category": "adjectives",
+      "example_nl": "Wat lief van je!",
+      "example_en": "That's so sweet of you!"
+    },
+    {
+      "dutch": "geweldig",
+      "phonetic": "khuh-VEL-dikh",
+      "english": "wonderful / amazing",
+      "category": "adjectives",
+      "example_nl": "Dat is geweldig nieuws!",
+      "example_en": "That's wonderful news!"
+    },
+    {
+      "dutch": "ik",
+      "phonetic": "ik",
+      "english": "I",
+      "category": "pronouns",
+      "example_nl": "Ik heet Mikey.",
+      "example_en": "My name is Mikey."
+    },
+    {
+      "dutch": "jij / je",
+      "phonetic": "yay / yuh",
+      "english": "you (informal)",
+      "category": "pronouns",
+      "example_nl": "Wat doe jij dit weekend?",
+      "example_en": "What are you doing this weekend?"
+    },
+    {
+      "dutch": "hij",
+      "phonetic": "hay",
+      "english": "he",
+      "category": "pronouns",
+      "example_nl": "Hij werkt bij Elsevier.",
+      "example_en": "He works at Elsevier."
+    },
+    {
+      "dutch": "zij / ze",
+      "phonetic": "zay / zuh",
+      "english": "she / they",
+      "category": "pronouns",
+      "example_nl": "Zij spreekt goed Nederlands.",
+      "example_en": "She speaks Dutch well."
+    },
+    {
+      "dutch": "wij / we",
+      "phonetic": "vay / vuh",
+      "english": "we",
+      "category": "pronouns",
+      "example_nl": "We wonen in Utrecht.",
+      "example_en": "We live in Utrecht."
+    },
+    {
+      "dutch": "gaan",
+      "phonetic": "khahn",
+      "english": "to go",
+      "category": "verbs",
+      "example_nl": "Waar ga je naartoe?",
+      "example_en": "Where are you going?"
+    },
+    {
+      "dutch": "komen",
+      "phonetic": "KOH-muh",
+      "english": "to come",
+      "category": "verbs",
+      "example_nl": "Kom je vanavond langs?",
+      "example_en": "Are you coming over tonight?"
+    },
+    {
+      "dutch": "eten",
+      "phonetic": "AY-tuh",
+      "english": "to eat",
+      "category": "verbs",
+      "example_nl": "Wat wil je vanavond eten?",
+      "example_en": "What do you want to eat tonight?"
+    },
+    {
+      "dutch": "drinken",
+      "phonetic": "DRINK-uh",
+      "english": "to drink",
+      "category": "verbs",
+      "example_nl": "Wil je iets drinken?",
+      "example_en": "Would you like something to drink?"
+    },
+    {
+      "dutch": "zien",
+      "phonetic": "zeen",
+      "english": "to see",
+      "category": "verbs",
+      "example_nl": "Ik zie je morgen!",
+      "example_en": "I'll see you tomorrow!"
+    },
+    {
+      "dutch": "horen",
+      "phonetic": "HOH-ruh",
+      "english": "to hear",
+      "category": "verbs",
+      "example_nl": "Ik hoor je niet goed.",
+      "example_en": "I can't hear you well."
+    },
+    {
+      "dutch": "weten",
+      "phonetic": "VAY-tuh",
+      "english": "to know (a fact)",
+      "category": "verbs",
+      "example_nl": "Ik weet het niet.",
+      "example_en": "I don't know."
+    },
+    {
+      "dutch": "begrijpen",
+      "phonetic": "buh-KHRAY-puh",
+      "english": "to understand",
+      "category": "verbs",
+      "example_nl": "Ik begrijp het niet.",
+      "example_en": "I don't understand."
+    },
+    {
+      "dutch": "spreken",
+      "phonetic": "SPRAY-kuh",
+      "english": "to speak",
+      "category": "verbs",
+      "example_nl": "Spreek je Nederlands?",
+      "example_en": "Do you speak Dutch?"
+    },
+    {
+      "dutch": "leren",
+      "phonetic": "LAY-ruh",
+      "english": "to learn",
+      "category": "verbs",
+      "example_nl": "Ik leer Nederlands.",
+      "example_en": "I'm learning Dutch."
+    },
+    {
+      "dutch": "helpen",
+      "phonetic": "HEL-puh",
+      "english": "to help",
+      "category": "verbs",
+      "example_nl": "Kan ik je helpen?",
+      "example_en": "Can I help you?"
+    },
+    {
+      "dutch": "kopen",
+      "phonetic": "KOH-puh",
+      "english": "to buy",
+      "category": "verbs",
+      "example_nl": "Ik ga een nieuwe fiets kopen.",
+      "example_en": "I'm going to buy a new bicycle."
+    },
+    {
+      "dutch": "betalen",
+      "phonetic": "buh-TAH-luh",
+      "english": "to pay",
+      "category": "verbs",
+      "example_nl": "Kan ik met pin betalen?",
+      "example_en": "Can I pay by card?"
+    },
+    {
+      "dutch": "slapen",
+      "phonetic": "SLAH-puh",
+      "english": "to sleep",
+      "category": "verbs",
+      "example_nl": "Ik ga slapen. Welterusten!",
+      "example_en": "I'm going to sleep. Good night!"
+    },
+    {
+      "dutch": "de stad",
+      "phonetic": "duh stat",
+      "english": "the city",
+      "category": "places",
+      "example_nl": "Utrecht is een mooie stad.",
+      "example_en": "Utrecht is a beautiful city."
+    },
+    {
+      "dutch": "de straat",
+      "phonetic": "duh straht",
+      "english": "the street",
+      "category": "places",
+      "example_nl": "Ik woon in een rustige straat.",
+      "example_en": "I live on a quiet street."
+    },
+    {
+      "dutch": "het park",
+      "phonetic": "et park",
+      "english": "the park",
+      "category": "places",
+      "example_nl": "We gaan een wandeling maken in het park.",
+      "example_en": "We're going for a walk in the park."
+    },
+    {
+      "dutch": "de bibliotheek",
+      "phonetic": "duh bib-lee-oh-TAYK",
+      "english": "the library",
+      "category": "places",
+      "example_nl": "Ik ga naar de bibliotheek om een boek te halen.",
+      "example_en": "I'm going to the library to get a book."
+    },
+    {
+      "dutch": "het ziekenhuis",
+      "phonetic": "et ZEE-kuh-howss",
+      "english": "the hospital",
+      "category": "places",
+      "example_nl": "Het dichtstbijzijnde ziekenhuis is hier vijf minuten vandaan.",
+      "example_en": "The nearest hospital is five minutes from here."
+    },
+    {
+      "dutch": "de apotheek",
+      "phonetic": "duh ah-po-TAYK",
+      "english": "the pharmacy",
+      "category": "places",
+      "example_nl": "Waar is de dichtstbijzijnde apotheek?",
+      "example_en": "Where is the nearest pharmacy?"
+    },
+    {
+      "dutch": "het restaurant",
+      "phonetic": "et res-toh-RAHNT",
+      "english": "the restaurant",
+      "category": "places",
+      "example_nl": "Laten we vanavond naar een restaurant gaan.",
+      "example_en": "Let's go to a restaurant tonight."
+    },
+    {
+      "dutch": "de markt",
+      "phonetic": "duh markt",
+      "english": "the market",
+      "category": "places",
+      "example_nl": "Op zaterdag ga ik naar de markt.",
+      "example_en": "On Saturday I go to the market."
+    },
+    {
+      "dutch": "de familie",
+      "phonetic": "duh fah-MEE-lee",
+      "english": "the family",
+      "category": "people",
+      "example_nl": "Mijn familie woont in Engeland.",
+      "example_en": "My family lives in England."
+    },
+    {
+      "dutch": "de vriend",
+      "phonetic": "duh vreent",
+      "english": "the friend / boyfriend",
+      "category": "people",
+      "example_nl": "Mijn beste vriend heet Tom.",
+      "example_en": "My best friend's name is Tom."
+    },
+    {
+      "dutch": "de vriendin",
+      "phonetic": "duh vreen-DIN",
+      "english": "the female friend / girlfriend",
+      "category": "people",
+      "example_nl": "Mijn vriendin woont in Utrecht.",
+      "example_en": "My girlfriend lives in Utrecht."
+    },
+    {
+      "dutch": "de buurman/buurvrouw",
+      "phonetic": "duh BOOR-man / BOOR-vrow",
+      "english": "the neighbour (m/f)",
+      "category": "people",
+      "example_nl": "Mijn buurman is erg aardig.",
+      "example_en": "My neighbour is very kind."
+    },
+    {
+      "dutch": "de hond",
+      "phonetic": "duh hont",
+      "english": "the dog",
+      "category": "people",
+      "example_nl": "Onze hond heet Max.",
+      "example_en": "Our dog's name is Max."
+    },
+    {
+      "dutch": "de kat",
+      "phonetic": "duh kat",
+      "english": "the cat",
+      "category": "people",
+      "example_nl": "Onze kat Iris ligt altijd op de bank.",
+      "example_en": "Our cat Iris always lies on the sofa."
+    },
+    {
+      "dutch": "aardig",
+      "phonetic": "AHR-dikh",
+      "english": "kind / nice",
+      "category": "people",
+      "example_nl": "Nederlanders zijn erg aardig.",
+      "example_en": "Dutch people are very kind."
+    },
+    {
+      "dutch": "samen",
+      "phonetic": "SAH-muh",
+      "english": "together",
+      "category": "people",
+      "example_nl": "We doen het samen.",
+      "example_en": "We do it together."
+    },
+    {
+      "dutch": "het lichaam",
+      "phonetic": "et LEE-khahm",
+      "english": "the body",
+      "category": "health",
+      "example_nl": "Sporten is goed voor het lichaam.",
+      "example_en": "Exercising is good for the body."
+    },
+    {
+      "dutch": "ziek",
+      "phonetic": "zeek",
+      "english": "sick / ill",
+      "category": "health",
+      "example_nl": "Ik ben vandaag ziek. Ik blijf thuis.",
+      "example_en": "I'm sick today. I'm staying home."
+    },
+    {
+      "dutch": "gezond",
+      "phonetic": "khuh-ZONT",
+      "english": "healthy",
+      "category": "health",
+      "example_nl": "Groenten eten is gezond.",
+      "example_en": "Eating vegetables is healthy."
+    },
+    {
+      "dutch": "sporten",
+      "phonetic": "SPOR-tuh",
+      "english": "to exercise / to do sports",
+      "category": "health",
+      "example_nl": "Ik sport drie keer per week.",
+      "example_en": "I exercise three times a week."
+    },
+    {
+      "dutch": "de rust",
+      "phonetic": "duh rust",
+      "english": "the rest / peace",
+      "category": "health",
+      "example_nl": "Ik heb rust nodig na een lange dag.",
+      "example_en": "I need rest after a long day."
+    },
+    {
+      "dutch": "de muziek",
+      "phonetic": "duh moo-ZEEK",
+      "english": "the music",
+      "category": "hobbies",
+      "example_nl": "Ik luister graag naar muziek.",
+      "example_en": "I like listening to music."
+    },
+    {
+      "dutch": "lezen",
+      "phonetic": "LAY-zuh",
+      "english": "to read",
+      "category": "hobbies",
+      "example_nl": "Ik lees graag boeken in de avond.",
+      "example_en": "I like reading books in the evening."
+    },
+    {
+      "dutch": "koken",
+      "phonetic": "KOH-kuh",
+      "english": "to cook",
+      "category": "hobbies",
+      "example_nl": "Vanavond kook ik pasta voor ons.",
+      "example_en": "Tonight I'm cooking pasta for us."
+    },
+    {
+      "dutch": "wandelen",
+      "phonetic": "VAN-duh-luh",
+      "english": "to walk / to hike",
+      "category": "hobbies",
+      "example_nl": "We gaan dit weekend wandelen in het bos.",
+      "example_en": "We're going for a walk in the forest this weekend."
+    },
+    {
+      "dutch": "reizen",
+      "phonetic": "RAY-zuh",
+      "english": "to travel",
+      "category": "hobbies",
+      "example_nl": "Ik reiz graag naar nieuwe landen.",
+      "example_en": "I like travelling to new countries."
+    },
+    {
+      "dutch": "het boek",
+      "phonetic": "et book",
+      "english": "the book",
+      "category": "hobbies",
+      "example_nl": "Ik heb een interessant boek gelezen.",
+      "example_en": "I read an interesting book."
+    },
+    {
+      "dutch": "de film",
+      "phonetic": "duh film",
+      "english": "the film / movie",
+      "category": "hobbies",
+      "example_nl": "Zullen we een film kijken vanavond?",
+      "example_en": "Shall we watch a film tonight?"
+    },
+    {
+      "dutch": "de tuin",
+      "phonetic": "duh town",
+      "english": "the garden",
+      "category": "hobbies",
+      "example_nl": "Ik houd van werken in de tuin.",
+      "example_en": "I love working in the garden."
+    },
+    {
+      "dutch": "het raam",
+      "phonetic": "et rahm",
+      "english": "the window",
+      "category": "home",
+      "example_nl": "Doe het raam open, het is warm.",
+      "example_en": "Open the window, it's warm."
+    },
+    {
+      "dutch": "de deur",
+      "phonetic": "duh duhr",
+      "english": "the door",
+      "category": "home",
+      "example_nl": "Doe de deur dicht, alsjeblieft.",
+      "example_en": "Please close the door."
+    },
+    {
+      "dutch": "de keuken",
+      "phonetic": "duh KUH-kuh",
+      "english": "the kitchen",
+      "category": "home",
+      "example_nl": "De keuken is mijn favoriete kamer.",
+      "example_en": "The kitchen is my favourite room."
+    },
+    {
+      "dutch": "de badkamer",
+      "phonetic": "duh BAT-kah-mer",
+      "english": "the bathroom",
+      "category": "home",
+      "example_nl": "De badkamer is boven aan de trap.",
+      "example_en": "The bathroom is upstairs."
+    },
+    {
+      "dutch": "de bank",
+      "phonetic": "duh bank",
+      "english": "the sofa / couch",
+      "category": "home",
+      "example_nl": "Ik lig op de bank te rusten.",
+      "example_en": "I'm resting on the sofa."
+    },
+    {
+      "dutch": "schoon",
+      "phonetic": "skhohn",
+      "english": "clean",
+      "category": "home",
+      "example_nl": "Het huis is schoon na het opruimen.",
+      "example_en": "The house is clean after tidying up."
+    },
+    {
+      "dutch": "opruimen",
+      "phonetic": "OP-row-muh",
+      "english": "to tidy up / to clean",
+      "category": "home",
+      "example_nl": "Ik moet nog opruimen voor de gasten komen.",
+      "example_en": "I still need to tidy up before the guests arrive."
+    },
+    {
+      "dutch": "de plant",
+      "phonetic": "duh plant",
+      "english": "the plant",
+      "category": "home",
+      "example_nl": "Mijn kamer staat vol met planten.",
+      "example_en": "My room is full of plants."
+    },
+    {
+      "dutch": "de lamp",
+      "phonetic": "duh lamp",
+      "english": "the lamp / light",
+      "category": "home",
+      "example_nl": "Doe de lamp aan, het is donker.",
+      "example_en": "Turn the lamp on, it's dark."
+    },
+    {
+      "dutch": "misschien",
+      "phonetic": "mis-KHEEN",
+      "english": "maybe / perhaps",
+      "category": "phrases",
+      "example_nl": "Misschien ga ik morgen naar de gym.",
+      "example_en": "Maybe I'll go to the gym tomorrow."
+    },
+    {
+      "dutch": "eigenlijk",
+      "phonetic": "AY-khuh-lik",
+      "english": "actually / to be honest",
+      "category": "phrases",
+      "example_nl": "Eigenlijk heb ik geen zin.",
+      "example_en": "Actually, I don't feel like it."
+    },
+    {
+      "dutch": "toch",
+      "phonetic": "tokh",
+      "english": "yet / still / anyway",
+      "category": "phrases",
+      "example_nl": "Je doet het toch wel goed!",
+      "example_en": "You're doing well anyway!"
+    },
+    {
+      "dutch": "even",
+      "phonetic": "AY-vuh",
+      "english": "just / for a moment",
+      "category": "phrases",
+      "example_nl": "Wacht even!",
+      "example_en": "Wait a moment!"
+    },
+    {
+      "dutch": "natuurlijk",
+      "phonetic": "nah-TYOOR-lik",
+      "english": "of course / naturally",
+      "category": "phrases",
+      "example_nl": "Natuurlijk help ik je!",
+      "example_en": "Of course I'll help you!"
+    },
+    {
+      "dutch": "zeker",
+      "phonetic": "ZAY-ker",
+      "english": "sure / certain / definitely",
+      "category": "phrases",
+      "example_nl": "Zeker weten!",
+      "example_en": "For sure!"
+    },
+    {
+      "dutch": "helaas",
+      "phonetic": "huh-LAHS",
+      "english": "unfortunately",
+      "category": "phrases",
+      "example_nl": "Helaas kan ik niet komen.",
+      "example_en": "Unfortunately I can't make it."
+    },
+    {
+      "dutch": "gelukkig",
+      "phonetic": "khuh-LUK-ikh",
+      "english": "lucky / fortunately / happy",
+      "category": "phrases",
+      "example_nl": "Gelukkig is het niet zo erg.",
+      "example_en": "Fortunately it's not that bad."
+    },
+    {
+      "dutch": "dat klopt",
+      "phonetic": "dat klopt",
+      "english": "that's right / correct",
+      "category": "phrases",
+      "example_nl": "Dat klopt! Goed gedaan.",
+      "example_en": "That's right! Well done."
+    },
+    {
+      "dutch": "wat jammer",
+      "phonetic": "vat YAM-mer",
+      "english": "what a pity / that's a shame",
+      "category": "phrases",
+      "example_nl": "Wat jammer dat je niet kunt komen.",
+      "example_en": "What a shame you can't come."
+    },
+    {
+      "dutch": "gefeliciteerd",
+      "phonetic": "khuh-fuh-lee-see-TAYRT",
+      "english": "congratulations",
+      "category": "phrases",
+      "example_nl": "Gefeliciteerd met je verjaardag!",
+      "example_en": "Congratulations on your birthday!"
+    },
+    {
+      "dutch": "welterusten",
+      "phonetic": "vel-tuh-RUS-tuh",
+      "english": "good night (sleep well)",
+      "category": "phrases",
+      "example_nl": "Slaap lekker! Welterusten.",
+      "example_en": "Sleep well! Good night."
+    },
+    {
+      "dutch": "proost",
+      "phonetic": "prohst",
+      "english": "cheers! (toast)",
+      "category": "phrases",
+      "example_nl": "Proost! Op een goed jaar.",
+      "example_en": "Cheers! To a good year."
+    },
+    {
+      "dutch": "smakelijk",
+      "phonetic": "SMAH-kuh-lik",
+      "english": "enjoy your meal",
+      "category": "phrases",
+      "example_nl": "Eet smakelijk!",
+      "example_en": "Enjoy your meal!"
+    },
+    {
+      "dutch": "goed gedaan",
+      "phonetic": "khoot khuh-DAHN",
+      "english": "well done / good job",
+      "category": "phrases",
+      "example_nl": "Goed gedaan! Je hebt het goed gedaan.",
+      "example_en": "Well done! You did great."
+    },
+    {
+      "dutch": "doe maar",
+      "phonetic": "doo mahr",
+      "english": "go ahead / just do it",
+      "category": "phrases",
+      "example_nl": "Doe maar, ik vertrouw je.",
+      "example_en": "Go ahead, I trust you."
+    },
+    {
+      "dutch": "genoeg",
+      "phonetic": "khuh-NOOKH",
+      "english": "enough",
+      "category": "phrases",
+      "example_nl": "Dat is meer dan genoeg, dankjewel.",
+      "example_en": "That's more than enough, thank you."
+    },
+    {
+      "dutch": "nodig hebben",
+      "phonetic": "NOH-dikh HEB-buh",
+      "english": "to need",
+      "category": "phrases",
+      "example_nl": "Ik heb hulp nodig.",
+      "example_en": "I need help."
+    },
+    {
+      "dutch": "de herfst",
+      "phonetic": "duh herfst",
+      "english": "autumn / fall",
+      "category": "nature",
+      "example_nl": "In de herfst vallen de bladeren van de bomen.",
+      "example_en": "In autumn the leaves fall from the trees."
+    },
+    {
+      "dutch": "de lente",
+      "phonetic": "duh LEN-tuh",
+      "english": "spring",
+      "category": "nature",
+      "example_nl": "In de lente bloeien de tulpen.",
+      "example_en": "In spring the tulips bloom."
+    },
+    {
+      "dutch": "de zomer",
+      "phonetic": "duh ZOH-mer",
+      "english": "summer",
+      "category": "nature",
+      "example_nl": "In de zomer gaan we naar het strand.",
+      "example_en": "In summer we go to the beach."
+    },
+    {
+      "dutch": "de winter",
+      "phonetic": "duh VIN-ter",
+      "english": "winter",
+      "category": "nature",
+      "example_nl": "In de winter is het koud in Nederland.",
+      "example_en": "In winter it's cold in the Netherlands."
+    },
+    {
+      "dutch": "de regen",
+      "phonetic": "duh RAY-khuh",
+      "english": "the rain",
+      "category": "nature",
+      "example_nl": "De regen stopt niet vandaag.",
+      "example_en": "The rain isn't stopping today."
+    },
+    {
+      "dutch": "de wind",
+      "phonetic": "duh vint",
+      "english": "the wind",
+      "category": "nature",
+      "example_nl": "Er staat veel wind vandaag.",
+      "example_en": "It's very windy today."
+    },
+    {
+      "dutch": "het bos",
+      "phonetic": "et bos",
+      "english": "the forest / woods",
+      "category": "nature",
+      "example_nl": "We gingen wandelen in het bos.",
+      "example_en": "We went for a walk in the forest."
+    },
+    {
+      "dutch": "de rivier",
+      "phonetic": "duh ree-VEER",
+      "english": "the river",
+      "category": "nature",
+      "example_nl": "Utrecht ligt aan de Rijn.",
+      "example_en": "Utrecht is on the Rhine."
+    },
+    {
+      "dutch": "de tulp",
+      "phonetic": "duh tulp",
+      "english": "the tulip",
+      "category": "nature",
+      "example_nl": "Tulpen zijn het symbool van Nederland.",
+      "example_en": "Tulips are the symbol of the Netherlands."
+    },
+    {
+      "dutch": "de molen",
+      "phonetic": "duh MOH-luh",
+      "english": "the windmill",
+      "category": "nature",
+      "example_nl": "Molens zijn typisch Nederlands.",
+      "example_en": "Windmills are typically Dutch."
+    },
+    {
+      "dutch": "het Nederlands",
+      "phonetic": "et NAY-der-lants",
+      "english": "the Dutch language",
+      "category": "language",
+      "example_nl": "Ik oefen elke dag mijn Nederlands.",
+      "example_en": "I practise my Dutch every day."
+    },
+    {
+      "dutch": "het woord",
+      "phonetic": "et vohrt",
+      "english": "the word",
+      "category": "language",
+      "example_nl": "Ik leer elke dag een nieuw woord.",
+      "example_en": "I learn a new word every day."
+    },
+    {
+      "dutch": "de zin",
+      "phonetic": "duh zin",
+      "english": "the sentence / meaning",
+      "category": "language",
+      "example_nl": "Kun jij deze zin vertalen?",
+      "example_en": "Can you translate this sentence?"
+    },
+    {
+      "dutch": "oefenen",
+      "phonetic": "OO-fuh-nuh",
+      "english": "to practise",
+      "category": "language",
+      "example_nl": "Ik oefen elke dag Nederlands.",
+      "example_en": "I practise Dutch every day."
+    },
+    {
+      "dutch": "het woordenboek",
+      "phonetic": "et VOR-duh-book",
+      "english": "the dictionary",
+      "category": "language",
+      "example_nl": "Ik gebruik een woordenboek als ik een woord niet ken.",
+      "example_en": "I use a dictionary when I don't know a word."
+    }
+  ]
+}

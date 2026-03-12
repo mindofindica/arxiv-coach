@@ -35,7 +35,8 @@
     "backfill-digest-papers": "tsx src/scripts/backfill-digest-papers.ts",
     "search": "tsx src/scripts/query-search.ts",
 "trends": "tsx src/scripts/query-trends.ts",
-    "recommend": "tsx src/scripts/query-recommend.ts"
+    "recommend": "tsx src/scripts/query-recommend.ts",
+    "dutch-daily": "tsx src/scripts/dutch-daily.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
