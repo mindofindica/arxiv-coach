@@ -130,3 +130,17 @@ npm run artifacts    # Fetch PDFs + extract text for matched papers
 ## Scheduling
 
 We’ll schedule daily delivery for **08:30 CET** (adjustable later). Implementation will read `config.yml` so changing the time won’t require code changes.
+
+## Dutch Word of the Day
+
+Daily Dutch vocabulary delivered to Signal at 08:15 CET. Cycles through 189 A1–A2 words deterministically by date — no repeats until the full list is covered, then restarts.
+
+```bash
+npm run dutch-daily                    # Print today's word (Signal-formatted)
+npm run dutch-daily -- --json          # Print JSON envelope
+npm run dutch-daily -- --date 2026-04-01  # Override date (YYYY-MM-DD)
+```
+
+**Vocabulary:** `src/vocab/dutch-vocab.json` — 189 words across 18 categories (greetings, transport, food, work, time, verbs, adjectives, etc.)
+
+**Integration:** The output is consumed by the OpenClaw cron which forwards the message to Signal. To add more words, extend `dutch-vocab.json` — the cycle automatically adapts.
