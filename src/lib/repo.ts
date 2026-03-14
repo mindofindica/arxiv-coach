@@ -66,8 +66,13 @@ export function upsertPaper(db: Db, config: AppConfig, entry: ArxivEntry) {
      VALUES (?, ?, ?, ?, ?)`
   ).run(entry.arxivId, entry.version, entry.updatedAt, null, now);
 
-  // Fire-and-forget sync to Supabase so PaperBrief stays up to date
-  syncPaperToSupabase(entry).catch(() => { /* non-fatal */ });
+  // Async sync to Supabase — failures are logged to supabase-sync-errors.jsonl
+  syncPaperToSupabase(entry).then(result => {
+    if (!result.ok && !result.skipped) {
+      // Error already written to the JSONL log by syncPaperToSupabase
+      console.warn(`[supabase-sync] failed to upsert ${entry.arxivId}: ${result.error}`);
+    }
+  }).catch(() => { /* non-fatal — sync must never crash the pipeline */ });
 }
 
 export function upsertTrackMatch(db: Db, arxivId: string, trackName: string, score: number, matchedTerms: string[]) {
