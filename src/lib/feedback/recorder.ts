@@ -13,6 +13,7 @@
 import crypto from 'node:crypto';
 import type { Db } from '../db.js';
 import type { FeedbackType } from './parser.js';
+import { syncSaveToSupabase, syncReadToSupabase, syncLoveToSupabase } from '../supabase-reading-list.js';
 
 export const SIGNAL_STRENGTHS: Record<FeedbackType, number> = {
   love: 10,
@@ -136,6 +137,15 @@ export function recordFeedback(opts: RecordOptions): RecordResult {
           )
           .run(uuid(), arxivId, effectivePriority, notes);
       }
+
+      // Sync to Supabase (non-blocking)
+      syncSaveToSupabase(arxivId, { priority: effectivePriority, note: notes ?? undefined })
+        .then(result => {
+          if (!result.ok && !result.skipped) {
+            console.warn(`[supabase-reading-list] /save sync failed for ${arxivId}: ${result.error}`);
+          }
+        })
+        .catch(() => { /* non-fatal */ });
     }
 
     // If /read and paper is in reading list, mark as read (with timestamp)
@@ -146,6 +156,15 @@ export function recordFeedback(opts: RecordOptions): RecordResult {
            WHERE paper_id = ? AND status IN ('unread', 'in_progress')`,
         )
         .run(arxivId);
+
+      // Sync to Supabase (non-blocking)
+      syncReadToSupabase(arxivId)
+        .then(result => {
+          if (!result.ok && !result.skipped) {
+            console.warn(`[supabase-reading-list] /read sync failed for ${arxivId}: ${result.error}`);
+          }
+        })
+        .catch(() => { /* non-fatal */ });
     }
 
     // If /love and paper is in reading list, bump priority to 8
@@ -156,6 +175,15 @@ export function recordFeedback(opts: RecordOptions): RecordResult {
            WHERE paper_id = ?`,
         )
         .run(arxivId);
+
+      // Sync to Supabase (non-blocking)
+      syncLoveToSupabase(arxivId)
+        .then(result => {
+          if (!result.ok && !result.skipped) {
+            console.warn(`[supabase-reading-list] /love sync failed for ${arxivId}: ${result.error}`);
+          }
+        })
+        .catch(() => { /* non-fatal */ });
     }
 
     return { ok: true, paper, alreadyRecorded: false };
