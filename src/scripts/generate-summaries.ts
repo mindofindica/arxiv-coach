@@ -70,8 +70,7 @@ const WEEKLY_SHORTLIST_PATH = '/root/.openclaw/state/arxiv-coach/weekly-shortlis
 const AUTH_PROFILES_PATH = '/root/.openclaw/agents/main/agent/auth-profiles.json';
 
 const SUPABASE_URL_DEFAULT = 'https://otekgfkmkrpwidqjslmo.supabase.co';
-const SUPABASE_SERVICE_ROLE_KEY_DEFAULT =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90ZWtnZmtta3Jwd2lkcWpzbG1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDM4OTQxMywiZXhwIjoyMDg1OTY1NDEzfQ.zC2eYw-blNee95tkrEGlVMzWEYvpofiAyB3StWT2eAY';
+const SUPABASE_SERVICE_ROLE_KEY_DEFAULT = '';
 
 function parseStringArray(raw: unknown): string[] {
   if (Array.isArray(raw)) {
