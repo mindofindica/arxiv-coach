@@ -182,6 +182,7 @@ export async function runDaily(opts: DailyRunOptions): Promise<DailyRunResult> {
     const selection = selectDailyByTrack(db, {
       maxItemsPerDigest: config.limits.maxItemsPerDigest,
       maxPerTrack: config.limits.maxPerTrackPerDay,
+      dedupDays: 21,
     });
 
     const dateIso = isoDate(now);
