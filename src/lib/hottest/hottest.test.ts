@@ -14,6 +14,7 @@ import Database from 'better-sqlite3';
 import type { Db } from '../db.js';
 import {
   queryHottestPapers,
+  countHottestPapers,
   formatWindowLabel,
   formatHottestPaperItem,
   formatHottestReply,
@@ -499,10 +500,90 @@ describe('getHottestPapers', () => {
     expect(result.papers[0]!.arxivId).toBe('2603.00001');
   });
 
-  it('totalFound reflects actual result count', () => {
+  it('totalFound reflects actual result count when all fit within limit', () => {
     insertPaper(db, '2603.00001', 'Paper 1', ['Alice'], '2026-03-10T00:00:00Z');
     insertMatch(db, '2603.00001', 'Track', 5, daysAgo(2));
     const result = getHottestPapers(db);
     expect(result.totalFound).toBe(result.papers.length);
+    expect(result.totalFound).toBe(1);
+  });
+
+  it('totalFound reflects full pool when papers exceed the limit', () => {
+    // Seed 10 papers, but request only 3
+    for (let i = 1; i <= 10; i++) {
+      insertPaper(db, `2603.0000${i}`, `Paper ${i}`, ['Author'], '2026-03-10T00:00:00Z');
+      insertMatch(db, `2603.0000${i}`, 'Track', i + 3, daysAgo(1));
+    }
+
+    const result = getHottestPapers(db, { windowDays: 7, limit: 3 });
+    // Should return 3 papers but totalFound should be 10
+    expect(result.papers).toHaveLength(3);
+    expect(result.totalFound).toBe(10);
+    // The formatted reply should show the truncation note
+    expect(result.reply).toContain('showing 3 of 10');
+  });
+});
+
+// ── countHottestPapers ────────────────────────────────────────────────────────
+
+describe('countHottestPapers', () => {
+  let db: Db;
+
+  beforeEach(() => {
+    db = makeDb();
+    bootstrapSchema(db);
+  });
+
+  it('returns 0 when no papers match', () => {
+    expect(countHottestPapers(db)).toBe(0);
+  });
+
+  it('counts unique papers with dedup=true', () => {
+    // One paper matching two tracks should count as 1
+    insertPaper(db, '2603.00001', 'Paper', ['Author'], '2026-03-10T00:00:00Z');
+    insertMatch(db, '2603.00001', 'Track A', 9, daysAgo(1));
+    insertMatch(db, '2603.00001', 'Track B', 7, daysAgo(1));
+
+    expect(countHottestPapers(db, { dedup: true })).toBe(1);
+  });
+
+  it('counts per-(arxiv_id, track) rows with dedup=false', () => {
+    // One paper matching two tracks should count as 2
+    insertPaper(db, '2603.00001', 'Paper', ['Author'], '2026-03-10T00:00:00Z');
+    insertMatch(db, '2603.00001', 'Track A', 9, daysAgo(1));
+    insertMatch(db, '2603.00001', 'Track B', 7, daysAgo(1));
+
+    expect(countHottestPapers(db, { dedup: false })).toBe(2);
+  });
+
+  it('respects the minScore filter', () => {
+    insertPaper(db, '2603.00001', 'Low scorer', ['Author'], '2026-03-10T00:00:00Z');
+    insertPaper(db, '2603.00002', 'High scorer', ['Author'], '2026-03-10T00:00:00Z');
+    insertMatch(db, '2603.00001', 'Track', 5, daysAgo(1));
+    insertMatch(db, '2603.00002', 'Track', 9, daysAgo(1));
+
+    expect(countHottestPapers(db, { minScore: 8 })).toBe(1);
+    expect(countHottestPapers(db, { minScore: 1 })).toBe(2);
+  });
+
+  it('respects the windowDays filter', () => {
+    insertPaper(db, '2603.00001', 'Recent', ['Author'], '2026-03-10T00:00:00Z');
+    insertPaper(db, '2603.00002', 'Old', ['Author'], '2026-03-10T00:00:00Z');
+    insertMatch(db, '2603.00001', 'Track', 8, daysAgo(2));
+    insertMatch(db, '2603.00002', 'Track', 8, daysAgo(15));
+
+    expect(countHottestPapers(db, { windowDays: 7 })).toBe(1);
+    expect(countHottestPapers(db, { windowDays: 30 })).toBe(2);
+  });
+
+  it('respects the track filter', () => {
+    insertPaper(db, '2603.00001', 'Paper A', ['Author'], '2026-03-10T00:00:00Z');
+    insertPaper(db, '2603.00002', 'Paper B', ['Author'], '2026-03-10T00:00:00Z');
+    insertMatch(db, '2603.00001', 'RAG', 8, daysAgo(1));
+    insertMatch(db, '2603.00002', 'Multi-Agent', 8, daysAgo(1));
+
+    expect(countHottestPapers(db, { track: 'rag' })).toBe(1);
+    expect(countHottestPapers(db, { track: 'agent' })).toBe(1);
+    expect(countHottestPapers(db, { track: null })).toBe(2);
   });
 });

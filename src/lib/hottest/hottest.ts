@@ -211,6 +211,42 @@ export function queryHottestPapers(db: Db, opts: HottestOptions = {}): HottestPa
   }));
 }
 
+/**
+ * Count total matching papers (before the limit) for a given set of options.
+ * Used by `getHottestPapers` to populate `totalFound` accurately so the
+ * "showing X of Y" note in the formatted reply actually works.
+ */
+export function countHottestPapers(
+  db: Db,
+  opts: Pick<HottestOptions, 'windowDays' | 'minScore' | 'dedup' | 'track'> = {}
+): number {
+  const {
+    windowDays = 7,
+    minScore = 1,
+    dedup = true,
+    track = null,
+  } = opts;
+
+  const windowCutoff = new Date(
+    Date.now() - windowDays * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  const trackClause = track ? `AND LOWER(tm.track_name) LIKE ?` : '';
+  const params: (string | number)[] = [windowCutoff, minScore];
+  if (track) params.push(`%${track.toLowerCase()}%`);
+
+  const sql = dedup
+    ? `SELECT COUNT(DISTINCT tm.arxiv_id) AS total
+       FROM track_matches tm
+       WHERE tm.matched_at >= ? AND tm.score >= ? ${trackClause}`
+    : `SELECT COUNT(*) AS total
+       FROM track_matches tm
+       WHERE tm.matched_at >= ? AND tm.score >= ? ${trackClause}`;
+
+  const row = db.sqlite.prepare(sql).get(...params) as { total: number } | undefined;
+  return row?.total ?? 0;
+}
+
 // ── Formatting ────────────────────────────────────────────────────────────────
 
 /**
@@ -299,9 +335,12 @@ export function getHottestPapers(
 
   const papers = queryHottestPapers(db, opts);
 
+  // Count total matching papers (before limit) so the "showing X of Y" note fires correctly.
+  const totalFound = countHottestPapers(db, { windowDays, minScore, dedup, track });
+
   const result: HottestResult = {
     papers,
-    totalFound: papers.length,
+    totalFound,
     windowDays,
     limit,
     dedup,
