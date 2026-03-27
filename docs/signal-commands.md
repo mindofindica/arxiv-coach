@@ -332,6 +332,78 @@ Ask a question about any paper in your corpus (or on arxiv directly). The answer
 
 ---
 
+## `/explain <query> [--level eli12|undergrad|engineer]`
+
+Get a plain-English explanation of any paper in your corpus — right from Signal, without opening a browser.
+
+```
+/explain 2402.01234
+/explain attention is all you need
+/explain #2 from today
+/explain #1 from 2026-03-20
+/explain 2402.01234 --level eli12
+/explain speculative decoding --level undergrad
+```
+
+**What `<query>` can be:**
+
+| Format | Example |
+|--------|---------|
+| Bare arxiv ID | `2402.01234` |
+| Prefixed arxiv ID | `arxiv:2402.01234` |
+| Title keywords (fuzzy match) | `attention transformers` |
+| Digest reference | `#2 from today` |
+| Dated digest reference | `#1 from 2026-03-20` |
+
+**`--level` flag:**
+
+| Level | Audience | Style |
+|-------|----------|-------|
+| `eli12` | 12-year-old | Analogies, no jargon, 3–5 sentences |
+| `undergrad` | CS undergraduate | Correct terms, intuitive descriptions, 4–6 sentences |
+| `engineer` | Senior ML/AI engineer *(default)* | Precise, technical, implementation-aware, 5–8 sentences |
+
+**Context strategy:**
+
+1. Uses first 6 000 chars of full text (intro + methods) when available
+2. Falls back to abstract if no text file exists (always works)
+
+Reply includes a `(abstract only)` note when falling back.
+
+**Example reply:**
+
+```
+⚙️ ENGINEER
+
+The Transformer replaces recurrence entirely with multi-head self-attention,
+making every position attend to every other position in O(1) sequential steps.
+This enables full parallelisation during training (unlike RNNs/LSTMs), at the
+cost of O(n²) memory in the attention matrix. The encoder-decoder design with
+positional encodings achieves state-of-the-art on WMT 2014 En-De/Fr translation
+while being significantly faster to train than prior architectures.
+
+> Attention Is All You Need (2017)
+```
+
+**Error cases:**
+
+| Situation | Reply |
+|-----------|-------|
+| No match for title search | `❓ No paper found matching "...". Try: /search ...` |
+| Multiple title matches | Lists up to 5 candidates + suggests using arxiv ID directly |
+| Unknown arxiv ID | `❓ Paper ... not found in local DB. Try: /search <keywords>` |
+| OPENROUTER_API_KEY missing | `❌ OPENROUTER_API_KEY not set` |
+| API transient error | Retries once automatically |
+
+**Design notes:**
+
+- Model: `claude-3-haiku` — same as `/ask`, fast and cheap ($0.25/M input)
+- Title lookup uses SQLite FTS (all meaningful words must match) — specific queries work best
+- Digest refs (`#N from today`) look up papers by position in that day's matched papers
+- Explanations are capped at 900 chars for Signal readability
+
+---
+
 ## ArXiv ID Formats
 
 All feedback commands accept the same ID formats:
@@ -380,6 +452,7 @@ Both are equivalent.
 | `/weekly` | ❌ | — | Weekly paper summary (current or given ISO week) |
 | `/search <query>` | ❌ | — | FTS5 full-text search over corpus |
 | `/ask <id> <question>` | ✅ | — | Ask a question about a paper (LLM-powered, abstract context) |
+| `/explain <query>` | ❌ | — | Plain-English paper explanation; accepts ID, title, or `#N from today` |
 | `/recommend` | ❌ | — | Personalised recommendations from feedback history |
 | `/preview` | ❌ | — | Dry-run of tomorrow's digest (no DB writes) |
 
