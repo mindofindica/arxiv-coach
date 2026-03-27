@@ -37,7 +37,8 @@
     "search": "tsx src/scripts/query-search.ts",
     "trends": "tsx src/scripts/query-trends.ts",
     "recommend": "tsx src/scripts/query-recommend.ts",
-    "artifacts-slow": "tsx src/scripts/fetch-artifacts-slow.ts"
+    "artifacts-slow": "tsx src/scripts/fetch-artifacts-slow.ts",
+    "ask": "tsx src/cli/ask.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

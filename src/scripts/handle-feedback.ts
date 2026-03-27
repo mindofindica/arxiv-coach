@@ -94,7 +94,7 @@ async function main(): Promise<void> {
   }
 
   try {
-    const result = handler.handle(messageText);
+    const result = await handler.handle(messageText);
     process.stdout.write(JSON.stringify(result) + '\n');
     process.exit(0);
   } finally {

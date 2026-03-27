@@ -36,7 +36,7 @@
  */
 
 export type FeedbackType = 'read' | 'skip' | 'save' | 'love' | 'meh';
-export type QueryCommand = 'reading-list' | 'status' | 'stats' | 'weekly' | 'search' | 'trends' | 'digest' | 'recommend' | 'preview';
+export type QueryCommand = 'reading-list' | 'status' | 'stats' | 'weekly' | 'search' | 'trends' | 'digest' | 'recommend' | 'preview' | 'streak';
 
 export interface ParsedFeedback {
   feedbackType: FeedbackType;
@@ -93,13 +93,26 @@ export interface ParseResultQueryOk {
   query: ParsedQuery;
 }
 
+export interface ParsedPaperQuery {
+  command: 'ask';
+  arxivId: string;
+  question: string;
+  raw: string;
+}
+
+export interface ParseResultPaperQueryOk {
+  ok: true;
+  kind: 'paper-query';
+  paperQuery: ParsedPaperQuery;
+}
+
 export interface ParseResultError {
   ok: false;
-  error: 'not_a_command' | 'unknown_command' | 'missing_arxiv_id' | 'invalid_arxiv_id';
+  error: 'not_a_command' | 'unknown_command' | 'missing_arxiv_id' | 'invalid_arxiv_id' | 'missing_question';
   message: string;
 }
 
-export type ParseResult = ParseResultOk | ParseResultQueryOk | ParseResultError;
+export type ParseResult = ParseResultOk | ParseResultQueryOk | ParseResultPaperQueryOk | ParseResultError;
 
 // Arxiv ID regex: 4-digit year-month + 4-5 digits + optional version
 const ARXIV_ID_RE = /\b(\d{4}\.\d{4,5})(v\d+)?\b/;
@@ -111,7 +124,7 @@ const ARXIV_URL_RE = /https?:\/\/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})(v\d+)
 const ARXIV_PREFIX_RE = /\barxiv:(\d{4}\.\d{4,5})(v\d+)?\b/i;
 
 const FEEDBACK_COMMANDS: Set<string> = new Set(['read', 'skip', 'save', 'love', 'meh']);
-const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats', 'weekly', 'search', 'trends', 'digest', 'recommend', 'preview']);
+const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats', 'weekly', 'search', 'trends', 'digest', 'recommend', 'preview', 'streak']);
 
 /**
  * Extract and normalise an arxiv ID from a string fragment.
@@ -323,11 +336,52 @@ export function parseFeedbackMessage(text: string): ParseResult {
     };
   }
 
+  // ── /ask — paper Q&A (arxiv ID + question) ──────────────────────────
+  if (command === 'ask') {
+    // First token = arxiv ID, rest = question
+    const tokens = rest.split(/\s+/);
+    const idToken = tokens[0] ?? '';
+    const question = tokens.slice(1).join(' ').trim();
+
+    const arxivId = extractArxivId(idToken) ?? extractArxivId(rest);
+
+    if (!arxivId) {
+      return {
+        ok: false,
+        error: 'missing_arxiv_id',
+        message:
+          'Missing arxiv ID. Usage: /ask <arxiv-id> <question>\n\n' +
+          'Example: /ask 2402.01234 what is the key contribution?',
+      };
+    }
+
+    if (!question) {
+      return {
+        ok: false,
+        error: 'missing_question',
+        message:
+          `Missing question. Usage: /ask <arxiv-id> <question>\n\n` +
+          `Example: /ask ${arxivId} what is the key contribution?`,
+      };
+    }
+
+    return {
+      ok: true,
+      kind: 'paper-query' as const,
+      paperQuery: {
+        command: 'ask',
+        arxivId,
+        question,
+        raw: trimmed,
+      },
+    };
+  }
+
   if (!FEEDBACK_COMMANDS.has(command)) {
     return {
       ok: false,
       error: 'unknown_command',
-      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly /search /trends /digest /recommend /preview`,
+      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly /search /trends /digest /recommend /preview /streak /ask`,
     };
   }
 
