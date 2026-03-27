@@ -115,6 +115,11 @@ function createInlineHandler(db: Db) {
         return { shouldReply: false, wasCommand: true };
       }
 
+      // explain (/explain) — not tested in this inline handler; delegate gracefully
+      if (parsed.kind === 'explain') {
+        return { shouldReply: false, wasCommand: true };
+      }
+
       const { feedbackType, arxivId, notes, reason, priority } = parsed.feedback;
       const result = recordFeedback({ db, arxivId, feedbackType, notes, reason, priority });
       if (!result.ok) {
