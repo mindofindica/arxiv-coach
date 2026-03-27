@@ -106,13 +106,29 @@ export interface ParseResultPaperQueryOk {
   paperQuery: ParsedPaperQuery;
 }
 
+export type ExplainLevel = 'eli12' | 'undergrad' | 'engineer';
+
+export interface ParsedExplain {
+  command: 'explain';
+  /** Query: arxiv ID, title keywords, or digest ref like "#2 from today" */
+  query: string;
+  level: ExplainLevel;
+  raw: string;
+}
+
+export interface ParseResultExplainOk {
+  ok: true;
+  kind: 'explain';
+  explain: ParsedExplain;
+}
+
 export interface ParseResultError {
   ok: false;
-  error: 'not_a_command' | 'unknown_command' | 'missing_arxiv_id' | 'invalid_arxiv_id' | 'missing_question';
+  error: 'not_a_command' | 'unknown_command' | 'missing_arxiv_id' | 'invalid_arxiv_id' | 'missing_question' | 'missing_explain_query';
   message: string;
 }
 
-export type ParseResult = ParseResultOk | ParseResultQueryOk | ParseResultPaperQueryOk | ParseResultError;
+export type ParseResult = ParseResultOk | ParseResultQueryOk | ParseResultPaperQueryOk | ParseResultExplainOk | ParseResultError;
 
 // Arxiv ID regex: 4-digit year-month + 4-5 digits + optional version
 const ARXIV_ID_RE = /\b(\d{4}\.\d{4,5})(v\d+)?\b/;
@@ -377,11 +393,51 @@ export function parseFeedbackMessage(text: string): ParseResult {
     };
   }
 
+  // ── /explain — plain-English paper explanation ───────────────────────
+  if (command === 'explain') {
+    // Syntax: /explain <query> [--level eli12|undergrad|engineer]
+    // Query = everything before the first --flag (arxiv ID, title, or digest ref)
+    const flagIdx = rest.search(/--[\w-]+/);
+    const rawQuery = flagIdx === -1 ? rest.trim() : rest.slice(0, flagIdx).trim();
+    const flagPart = flagIdx === -1 ? '' : rest.slice(flagIdx);
+
+    if (!rawQuery) {
+      return {
+        ok: false,
+        error: 'missing_explain_query',
+        message:
+          'Missing query. Usage: /explain <arxiv-id or title or #N from today>\n\n' +
+          'Examples:\n' +
+          '  /explain 2402.01234\n' +
+          '  /explain attention is all you need\n' +
+          '  /explain #2 from today\n' +
+          '  /explain 2402.01234 --level eli12',
+      };
+    }
+
+    // Parse --level flag
+    const levelMatch = /--level\s+(eli12|undergrad|engineer)/i.exec(flagPart);
+    const level: ExplainLevel = levelMatch
+      ? (levelMatch[1]!.toLowerCase() as ExplainLevel)
+      : 'engineer';
+
+    return {
+      ok: true,
+      kind: 'explain' as const,
+      explain: {
+        command: 'explain',
+        query: rawQuery,
+        level,
+        raw: trimmed,
+      },
+    };
+  }
+
   if (!FEEDBACK_COMMANDS.has(command)) {
     return {
       ok: false,
       error: 'unknown_command',
-      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly /search /trends /digest /recommend /preview /streak /ask`,
+      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly /search /trends /digest /recommend /preview /streak /ask /explain`,
     };
   }
 

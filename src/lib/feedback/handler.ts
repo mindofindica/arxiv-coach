@@ -20,6 +20,7 @@ import { openDb, migrate } from '../db.js';
 import { ensureFeedbackTables } from './migrate.js';
 import { parseFeedbackMessage, type ParsedQuery } from './parser.js';
 import { askPaper, formatAskReply } from '../ask/askPaper.js';
+import { explainPaper, formatExplainReply } from '../explain/explainPaper.js';
 import { recordFeedback, formatConfirmation } from './recorder.js';
 import { getWeeklySummary } from '../query/weekly-summary.js';
 import { renderWeeklySummaryMessage } from '../query/render-weekly-summary.js';
@@ -615,6 +616,28 @@ export function createFeedbackHandler(opts: HandlerOptions = {}) {
           wasCommand: true,
           arxivId,
           reply: formatAskReply(result),
+        };
+      }
+
+      // ── /explain — plain-English paper explanation ────────────────────
+      if (parsed.kind === 'explain') {
+        const { query, level } = parsed.explain;
+        const result = await explainPaper({ db, query, level, repoRoot });
+        if (!result.ok) {
+          const reply =
+            result.error === 'ambiguous'
+              ? result.message
+              : result.message;
+          return {
+            shouldReply: true,
+            wasCommand: true,
+            reply,
+          };
+        }
+        return {
+          shouldReply: true,
+          wasCommand: true,
+          reply: formatExplainReply(result),
         };
       }
 
