@@ -19,6 +19,7 @@ import { loadConfig } from '../config.js';
 import { openDb, migrate } from '../db.js';
 import { ensureFeedbackTables } from './migrate.js';
 import { parseFeedbackMessage, type ParsedQuery } from './parser.js';
+import { askPaper, formatAskReply } from '../ask/askPaper.js';
 import { recordFeedback, formatConfirmation } from './recorder.js';
 import { getWeeklySummary } from '../query/weekly-summary.js';
 import { renderWeeklySummaryMessage } from '../query/render-weekly-summary.js';
@@ -604,9 +605,10 @@ export function createFeedbackHandler(opts: HandlerOptions = {}) {
 
   return {
     /**
-     * Handle a raw Signal message. Returns structured result.
+     * Handle a raw Signal message. Returns a Promise<HandleResult>.
+     * Most handlers are synchronous; /ask is async (OpenRouter call).
      */
-    handle(messageText: string): HandleResult {
+    async handle(messageText: string): Promise<HandleResult> {
       const parsed = parseFeedbackMessage(messageText);
 
       if (!parsed.ok) {
@@ -620,6 +622,26 @@ export function createFeedbackHandler(opts: HandlerOptions = {}) {
           shouldReply: true,
           wasCommand: true,
           reply: `⚠️ ${parsed.message}`,
+        };
+      }
+
+      // ── /ask — paper Q&A ──────────────────────────────────────────────
+      if (parsed.kind === 'paper-query') {
+        const { arxivId, question } = parsed.paperQuery;
+        const result = await askPaper({ db, arxivId, question });
+        if (!result.ok) {
+          return {
+            shouldReply: true,
+            wasCommand: true,
+            arxivId,
+            reply: result.message,
+          };
+        }
+        return {
+          shouldReply: true,
+          wasCommand: true,
+          arxivId,
+          reply: formatAskReply(result),
         };
       }
 
