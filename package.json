@@ -41,7 +41,8 @@
     "hottest": "tsx --env-file=.env src/scripts/hottest.ts",
     "check-hot-papers": "tsx src/scripts/check-hot-papers.ts",
     "ask": "tsx src/cli/ask.ts",
-    "explain": "tsx src/cli/explain.ts"
+    "explain": "tsx src/cli/explain.ts",
+    "weekly-briefing": "tsx --env-file=.env src/scripts/send-weekly-briefing.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
