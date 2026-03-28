@@ -24,6 +24,9 @@
  *   /search inference --track "LLM Efficiency" — filter by track
  *   /streak                    — reading streak: current, longest, active days, 14-day sparkline
  *   /streak --days 14          — active count over last 14 days (default 30)
+ *   /help                      — show all commands at a glance
+ *   /help search               — detailed help for /search
+ *   /help ask                  — detailed help for /ask
  *
  * All feedback commands support optional flags (Signal-safe unquoted form):
  *   --notes interesting ML approach    (captured as full multi-word string)

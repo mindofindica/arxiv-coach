@@ -21,6 +21,7 @@ import { ensureFeedbackTables } from './migrate.js';
 import { parseFeedbackMessage, type ParsedQuery } from './parser.js';
 import { askPaper, formatAskReply } from '../ask/askPaper.js';
 import { explainPaper, formatExplainReply } from '../explain/explainPaper.js';
+import { getHelp } from '../help/help.js';
 import { recordFeedback, formatConfirmation } from './recorder.js';
 import { getWeeklySummary } from '../query/weekly-summary.js';
 import { renderWeeklySummaryMessage } from '../query/render-weekly-summary.js';
@@ -643,6 +644,17 @@ export function createFeedbackHandler(opts: HandlerOptions = {}) {
           wasCommand: true,
           arxivId,
           reply: formatAskReply(result),
+        };
+      }
+
+      // ── /help — command reference ─────────────────────────────────────
+      if (parsed.kind === 'help') {
+        const { commandName } = parsed.help;
+        const result = getHelp({ commandName });
+        return {
+          shouldReply: true,
+          wasCommand: true,
+          reply: result.message,
         };
       }
 
