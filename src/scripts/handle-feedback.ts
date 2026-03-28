@@ -22,6 +22,9 @@
  *   /search speculative decoding — full-text search over paper library
  *   /search RAG --limit 3      — limit to 3 results
  *   /search inference --track "LLM Efficiency" — filter by track
+ *   /help                     — show all commands at a glance
+ *   /help search              — detailed help for /search
+ *   /help ask                 — detailed help for /ask
  *
  * All feedback commands support optional flags (Signal-safe unquoted form):
  *   --notes interesting ML approach    (captured as full multi-word string)

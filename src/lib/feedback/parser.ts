@@ -122,13 +122,26 @@ export interface ParseResultExplainOk {
   explain: ParsedExplain;
 }
 
+export interface ParsedHelp {
+  command: 'help';
+  /** Command name to look up detail for, or null for overview */
+  commandName: string | null;
+  raw: string;
+}
+
+export interface ParseResultHelpOk {
+  ok: true;
+  kind: 'help';
+  help: ParsedHelp;
+}
+
 export interface ParseResultError {
   ok: false;
   error: 'not_a_command' | 'unknown_command' | 'missing_arxiv_id' | 'invalid_arxiv_id' | 'missing_question' | 'missing_explain_query';
   message: string;
 }
 
-export type ParseResult = ParseResultOk | ParseResultQueryOk | ParseResultPaperQueryOk | ParseResultExplainOk | ParseResultError;
+export type ParseResult = ParseResultOk | ParseResultQueryOk | ParseResultPaperQueryOk | ParseResultExplainOk | ParseResultHelpOk | ParseResultError;
 
 // Arxiv ID regex: 4-digit year-month + 4-5 digits + optional version
 const ARXIV_ID_RE = /\b(\d{4}\.\d{4,5})(v\d+)?\b/;
@@ -433,11 +446,25 @@ export function parseFeedbackMessage(text: string): ParseResult {
     };
   }
 
+  // ── /help — command reference ────────────────────────────────────────
+  if (command === 'help') {
+    const commandName = rest.trim() || null;
+    return {
+      ok: true,
+      kind: 'help' as const,
+      help: {
+        command: 'help',
+        commandName,
+        raw: trimmed,
+      },
+    };
+  }
+
   if (!FEEDBACK_COMMANDS.has(command)) {
     return {
       ok: false,
       error: 'unknown_command',
-      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly /search /trends /digest /recommend /preview /streak /ask /explain`,
+      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly /search /trends /digest /recommend /preview /streak /ask /explain /help`,
     };
   }
 
