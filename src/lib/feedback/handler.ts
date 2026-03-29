@@ -27,6 +27,7 @@ import { analyseTrends, formatTrendsReply } from '../trends/trends.js';
 import { runOnDemandDigest } from '../ondemand/ondemand-digest.js';
 import { recommendPapers, formatRecommendReply } from '../recommend/recommend.js';
 import { digestPreview, formatPreviewMessage } from '../preview/preview.js';
+import { getActiveDays, computeStreakStats, formatStreakReply } from '../streak/streak.js';
 import type { Db } from '../db.js';
 
 export interface HandlerOptions {
@@ -565,6 +566,32 @@ function handlePreviewQuery(db: Db, query: ParsedQuery): HandleResult {
   }
 }
 
+// ── Streak query ───────────────────────────────────────────────────────────
+
+function handleStreakQuery(db: Db, query: ParsedQuery): HandleResult {
+  // The parser defaults days=7 for all commands; for /streak we want 30 by default.
+  // Detect explicit --days flag in the raw message to override correctly.
+  const hasExplicitDays = /--days\b/.test(query.raw);
+  const windowDays = hasExplicitDays ? query.days : 30;
+
+  try {
+    const activeDays = getActiveDays(db, 90);
+    const stats = computeStreakStats(activeDays, windowDays, 14);
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: formatStreakReply(stats),
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: `❌ Streak error: ${msg}`,
+    };
+  }
+}
+
 // ── Handler factory ────────────────────────────────────────────────────────
 
 export function createFeedbackHandler(opts: HandlerOptions = {}) {
@@ -624,6 +651,9 @@ export function createFeedbackHandler(opts: HandlerOptions = {}) {
         }
         if (parsed.query.command === 'preview') {
           return handlePreviewQuery(db, parsed.query);
+        }
+        if (parsed.query.command === 'streak') {
+          return handleStreakQuery(db, parsed.query);
         }
         return { shouldReply: false, wasCommand: false };
       }
