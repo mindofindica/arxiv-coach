@@ -38,7 +38,8 @@
     "trends": "tsx src/scripts/query-trends.ts",
     "recommend": "tsx src/scripts/query-recommend.ts",
     "artifacts-slow": "tsx src/scripts/fetch-artifacts-slow.ts",
-    "hottest": "tsx --env-file=.env src/scripts/hottest.ts"
+    "hottest": "tsx --env-file=.env src/scripts/hottest.ts",
+    "check-hot-papers": "tsx src/scripts/check-hot-papers.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

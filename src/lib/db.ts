@@ -6,7 +6,7 @@ export interface Db {
   sqlite: Database.Database;
 }
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 export function openDb(dbPath: string): Db {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -260,5 +260,24 @@ export function migrate(db: Db) {
 
     sqlite.prepare('UPDATE schema_meta SET version=?, updated_at=? WHERE id=1')
       .run(7, new Date().toISOString());
+  }
+
+  // v8 migration - hot paper alerts tracking
+  if (current <= 7) {
+    sqlite.exec(
+      `CREATE TABLE IF NOT EXISTS hot_alerts (
+        arxiv_id TEXT NOT NULL,
+        track_name TEXT NOT NULL,
+        score INTEGER NOT NULL,
+        alerted_at TEXT NOT NULL DEFAULT (datetime('now')),
+        PRIMARY KEY (arxiv_id, track_name)
+      )`
+    );
+    sqlite.exec(
+      `CREATE INDEX IF NOT EXISTS idx_hot_alerts_alerted_at ON hot_alerts(alerted_at)`
+    );
+
+    sqlite.prepare('UPDATE schema_meta SET version=?, updated_at=? WHERE id=1')
+      .run(8, new Date().toISOString());
   }
 }
