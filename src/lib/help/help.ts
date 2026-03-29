@@ -114,6 +114,13 @@ export const COMMANDS: CommandEntry[] = [
     examples: ['/streak'],
   },
   {
+    name: 'progress',
+    category: 'info',
+    summary: 'Weekly learning velocity: this week vs last week trend',
+    usage: '/progress',
+    examples: ['/progress'],
+  },
+  {
     name: 'weekly',
     category: 'info',
     summary: 'Weekly paper summary for current (or any) ISO week',
