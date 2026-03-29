@@ -30,6 +30,8 @@ import { analyseTrends, formatTrendsReply } from '../trends/trends.js';
 import { runOnDemandDigest } from '../ondemand/ondemand-digest.js';
 import { recommendPapers, formatRecommendReply } from '../recommend/recommend.js';
 import { digestPreview, formatPreviewMessage } from '../preview/preview.js';
+import { buildProgressData } from '../progress/progress.js';
+import { renderProgressReply } from '../progress/render-progress.js';
 import type { Db } from '../db.js';
 
 export interface HandlerOptions {
@@ -568,6 +570,24 @@ function handlePreviewQuery(db: Db, query: ParsedQuery): HandleResult {
   }
 }
 
+function handleProgressQuery(db: Db): HandleResult {
+  try {
+    const data = buildProgressData(db);
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: renderProgressReply(data),
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: `❌ Error computing progress: ${msg}`,
+    };
+  }
+}
+
 // ── Handler factory ────────────────────────────────────────────────────────
 
 export function createFeedbackHandler(opts: HandlerOptions = {}) {
@@ -681,6 +701,9 @@ export function createFeedbackHandler(opts: HandlerOptions = {}) {
         }
         if (parsed.query.command === 'preview') {
           return handlePreviewQuery(db, parsed.query);
+        }
+        if (parsed.query.command === 'progress') {
+          return handleProgressQuery(db);
         }
         return { shouldReply: false, wasCommand: false };
       }
