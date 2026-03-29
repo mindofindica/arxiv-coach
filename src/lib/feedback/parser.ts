@@ -36,7 +36,7 @@
  */
 
 export type FeedbackType = 'read' | 'skip' | 'save' | 'love' | 'meh';
-export type QueryCommand = 'reading-list' | 'status' | 'stats' | 'weekly' | 'search' | 'trends' | 'digest' | 'recommend' | 'preview' | 'streak';
+export type QueryCommand = 'reading-list' | 'status' | 'stats' | 'weekly' | 'search' | 'trends' | 'digest' | 'recommend' | 'preview' | 'streak' | 'progress';
 
 export interface ParsedFeedback {
   feedbackType: FeedbackType;
@@ -153,7 +153,7 @@ const ARXIV_URL_RE = /https?:\/\/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})(v\d+)
 const ARXIV_PREFIX_RE = /\barxiv:(\d{4}\.\d{4,5})(v\d+)?\b/i;
 
 const FEEDBACK_COMMANDS: Set<string> = new Set(['read', 'skip', 'save', 'love', 'meh']);
-const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats', 'weekly', 'search', 'trends', 'digest', 'recommend', 'preview', 'streak']);
+const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats', 'weekly', 'search', 'trends', 'digest', 'recommend', 'preview', 'streak', 'progress']);
 
 /**
  * Extract and normalise an arxiv ID from a string fragment.
@@ -464,7 +464,7 @@ export function parseFeedbackMessage(text: string): ParseResult {
     return {
       ok: false,
       error: 'unknown_command',
-      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly /search /trends /digest /recommend /preview /streak /ask /explain /help`,
+      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly /search /trends /digest /recommend /preview /streak /progress /ask /explain /help`,
     };
   }
 
