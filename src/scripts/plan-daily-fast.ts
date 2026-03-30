@@ -110,6 +110,7 @@ for (const cat of config.discovery.categories) {
 const selection = selectDailyByTrack(db, {
   maxItemsPerDigest: config.limits.maxItemsPerDigest,
   maxPerTrack: config.limits.maxPerTrackPerDay,
+  dedupDays: 21,  // match plan-daily.ts dedup window to avoid repeat papers
 });
 
 const dateIso = isoDate(now);
