@@ -147,10 +147,12 @@ describe('syncPaperToSupabase', () => {
 
     expect(capturedRequest).not.toBeNull();
     expect(capturedRequest!.url).toContain('/rest/v1/papers');
+    expect(capturedRequest!.url).toContain('on_conflict=arxiv_id');
     expect(capturedRequest!.init.method).toBe('POST');
 
     const headers = capturedRequest!.init.headers as Record<string, string>;
-    expect(headers['Prefer']).toBe('resolution=merge-duplicates');
+    expect(headers['Prefer']).toContain('resolution=merge-duplicates');
+    expect(headers['Prefer']).toContain('return=minimal');
     expect(headers['apikey']).toBe('test-key');
 
     const body = JSON.parse(capturedRequest!.init.body as string);
@@ -160,6 +162,18 @@ describe('syncPaperToSupabase', () => {
     expect(body[0].abstract).toBe('An abstract.');
     expect(body[0].authors).toEqual(['Alice', 'Bob']);
     expect(body[0].categories).toEqual(['cs.AI']);
+  });
+
+  it('passes an AbortSignal to fetch (timeout guard)', async () => {
+    let capturedSignal: AbortSignal | null = null;
+    const mockFetch = async (_url: string, init: RequestInit) => {
+      capturedSignal = init.signal as AbortSignal ?? null;
+      return { status: 201, ok: true, text: async () => '' } as Response;
+    };
+    await syncPaperToSupabase(makeEntry(), { ...OVERRIDES_BASE, logPath, fetch: mockFetch as any });
+    expect(capturedSignal).not.toBeNull();
+    // Should be an AbortSignal (created by AbortSignal.timeout)
+    expect(typeof capturedSignal!.aborted).toBe('boolean');
   });
 
   it('truncates oversized error body in log entry', async () => {
