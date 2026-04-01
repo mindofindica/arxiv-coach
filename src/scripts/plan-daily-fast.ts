@@ -58,11 +58,20 @@ const stats: any = {
 
 const enabledTracks = tracksFile.tracks.filter((t) => t.enabled);
 
+// Fast-path fetch options — tight budget to fit within 180s cron timeout.
+// 4 categories × worst case (2 retries × 10s + 2 × 5s backoff) = ~120s total.
+// On success each fetch takes ~2-5s, so happy path is ~15s for all 4 cats.
+const fastFetchOpts = {
+  maxAttempts: 2,        // 2 total attempts (1 retry) — give up fast on 429/5xx
+  fetchTimeoutMs: 10_000, // 10s per attempt (default: 30s)
+  maxBackoffMs: 5_000,    // 5s max backoff (default: 2 min)
+};
+
 // Step 1+2: Fetch + match
 for (const cat of config.discovery.categories) {
   let xml: string;
   try {
-    xml = await fetchAtom(cat, fetchMaxResults);
+    xml = await fetchAtom(cat, fetchMaxResults, fastFetchOpts);
   } catch (e) {
     const msg = String((e as any)?.message ?? e);
     console.warn(`Discovery fetch failed for ${cat}: ${msg}`);
