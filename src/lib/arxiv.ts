@@ -47,18 +47,28 @@ function normalizeSummary(s: string): string {
   return s.replace(/\s+/g, ' ').trim();
 }
 
+export interface FetchAtomOptions {
+  /** Maximum number of fetch attempts (default: 8) */
+  maxAttempts?: number;
+  /** Per-attempt fetch timeout in ms (default: 30_000) */
+  fetchTimeoutMs?: number;
+  /** Max exponential backoff wait between retries in ms (default: 120_000) */
+  maxBackoffMs?: number;
+}
+
 // NOTE: default maxResults is intentionally conservative to be kind to arXiv.
 // If we need more coverage, make it configurable in config.yml.
-export async function fetchAtom(category: string, maxResults = 100): Promise<string> {
+export async function fetchAtom(category: string, maxResults = 100, opts: FetchAtomOptions = {}): Promise<string> {
   const url = `https://export.arxiv.org/api/query?search_query=cat:${encodeURIComponent(category)}&start=0&max_results=${maxResults}&sortBy=lastUpdatedDate&sortOrder=descending`;
 
   // Be polite + resilient: retry on transient failures (esp. 429 rate limiting).
   // NOTE: We keep this conservative to avoid hammering arXiv.
-  // 8 attempts: gives ~10 min total wait time (1s, 2s, 4s, 8s, 16s, 32s, 64s, ...)
+  // Default: 8 attempts, gives ~10 min total wait time (1s, 2s, 4s, 8s, 16s, 32s, 64s, ...)
   // Capped at 2 min per attempt — recovers from extended 429 periods (seen Feb 21 2026).
-  const maxAttempts = 8;
-  const MAX_BACKOFF_MS = 120_000; // 2 min cap per wait
-  const FETCH_TIMEOUT_MS = 30_000; // 30s per attempt — prevents indefinite hang on slow arXiv
+  // For time-sensitive callers (e.g. plan-daily-fast), pass opts to reduce retries + backoff.
+  const maxAttempts = opts.maxAttempts ?? 8;
+  const MAX_BACKOFF_MS = opts.maxBackoffMs ?? 120_000; // 2 min cap per wait
+  const FETCH_TIMEOUT_MS = opts.fetchTimeoutMs ?? 30_000; // 30s per attempt — prevents indefinite hang on slow arXiv
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     // AbortSignal.timeout available in Node 18+; gives a hard timeout per request
     const signal = AbortSignal.timeout(FETCH_TIMEOUT_MS);

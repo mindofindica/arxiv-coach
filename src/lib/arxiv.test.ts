@@ -80,6 +80,53 @@ describe('fetchAtom', () => {
     expect(errMsg).toContain('429 Too Many Requests');
   });
 
+  it('respects maxAttempts option — gives up after fewer retries', async () => {
+    // With maxAttempts: 2, it should only try 2 times total (not 8).
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false, status: 429, statusText: 'Too Many Requests',
+    });
+    vi.stubGlobal('fetch', mockFetch);
+    vi.useFakeTimers();
+    const resultPromise = fetchAtom('cs.AI', 1, { maxAttempts: 2 });
+    const caught = resultPromise.catch((e: Error) => e.message);
+    await vi.runAllTimersAsync();
+    vi.useRealTimers();
+    const errMsg = await caught;
+    expect(errMsg).toContain('429 Too Many Requests');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('fast-path options succeed quickly when arxiv responds normally', async () => {
+    // Simulates the plan-daily-fast use-case: tight opts, arxiv responds OK first try.
+    const mockXml = '<feed></feed>';
+    const mockFetch = vi.fn().mockResolvedValue({ ok: true, text: async () => mockXml });
+    vi.stubGlobal('fetch', mockFetch);
+    const result = await fetchAtom('cs.AI', 1, {
+      maxAttempts: 2,
+      fetchTimeoutMs: 10_000,
+      maxBackoffMs: 5_000,
+    });
+    expect(result).toBe(mockXml);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('fast-path options fail fast (1 retry) on persistent 429', async () => {
+    // plan-daily-fast must bail after 2 attempts total, not 8.
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false, status: 429, statusText: 'Too Many Requests',
+    });
+    vi.stubGlobal('fetch', mockFetch);
+    vi.useFakeTimers();
+    const resultPromise = fetchAtom('cs.AI', 1, { maxAttempts: 2, maxBackoffMs: 5_000 });
+    const caught = resultPromise.catch((e: Error) => e.message);
+    await vi.runAllTimersAsync();
+    vi.useRealTimers();
+    const errMsg = await caught;
+    expect(errMsg).toContain('429');
+    // Should make exactly 2 attempts (not 8)
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
   it('retries on timeout (AbortError): succeeds on second attempt', async () => {
     // This test validates the core fix: AbortError (from AbortSignal.timeout) is
     // caught, treated as retryable, and the function retries successfully.
