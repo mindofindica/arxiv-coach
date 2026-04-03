@@ -19,6 +19,9 @@ import { loadConfig } from '../config.js';
 import { openDb, migrate } from '../db.js';
 import { ensureFeedbackTables } from './migrate.js';
 import { parseFeedbackMessage, type ParsedQuery } from './parser.js';
+import { askPaper, formatAskReply } from '../ask/askPaper.js';
+import { explainPaper, formatExplainReply } from '../explain/explainPaper.js';
+import { getHelp } from '../help/help.js';
 import { recordFeedback, formatConfirmation } from './recorder.js';
 import { getWeeklySummary } from '../query/weekly-summary.js';
 import { renderWeeklySummaryMessage } from '../query/render-weekly-summary.js';
@@ -28,6 +31,8 @@ import { runOnDemandDigest } from '../ondemand/ondemand-digest.js';
 import { recommendPapers, formatRecommendReply } from '../recommend/recommend.js';
 import { digestPreview, formatPreviewMessage } from '../preview/preview.js';
 import { getActiveDays, computeStreakStats, formatStreakReply } from '../streak/streak.js';
+import { buildProgressData } from '../progress/progress.js';
+import { renderProgressReply } from '../progress/render-progress.js';
 import type { Db } from '../db.js';
 
 export interface HandlerOptions {
@@ -592,6 +597,26 @@ function handleStreakQuery(db: Db, query: ParsedQuery): HandleResult {
   }
 }
 
+// ── Progress query ─────────────────────────────────────────────────────────
+
+function handleProgressQuery(db: Db): HandleResult {
+  try {
+    const data = buildProgressData(db);
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: renderProgressReply(data),
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: `❌ Error computing progress: ${msg}`,
+    };
+  }
+}
+
 // ── Handler factory ────────────────────────────────────────────────────────
 
 export function createFeedbackHandler(opts: HandlerOptions = {}) {
@@ -604,9 +629,10 @@ export function createFeedbackHandler(opts: HandlerOptions = {}) {
 
   return {
     /**
-     * Handle a raw Signal message. Returns structured result.
+     * Handle a raw Signal message. Returns a Promise<HandleResult>.
+     * Most handlers are synchronous; /ask is async (OpenRouter call).
      */
-    handle(messageText: string): HandleResult {
+    async handle(messageText: string): Promise<HandleResult> {
       const parsed = parseFeedbackMessage(messageText);
 
       if (!parsed.ok) {
@@ -620,6 +646,59 @@ export function createFeedbackHandler(opts: HandlerOptions = {}) {
           shouldReply: true,
           wasCommand: true,
           reply: `⚠️ ${parsed.message}`,
+        };
+      }
+
+      // ── /ask — paper Q&A ──────────────────────────────────────────────
+      if (parsed.kind === 'paper-query') {
+        const { arxivId, question } = parsed.paperQuery;
+        const result = await askPaper({ db, arxivId, question });
+        if (!result.ok) {
+          return {
+            shouldReply: true,
+            wasCommand: true,
+            arxivId,
+            reply: result.message,
+          };
+        }
+        return {
+          shouldReply: true,
+          wasCommand: true,
+          arxivId,
+          reply: formatAskReply(result),
+        };
+      }
+
+      // ── /help — command reference ─────────────────────────────────────
+      if (parsed.kind === 'help') {
+        const { commandName } = parsed.help;
+        const result = getHelp({ commandName });
+        return {
+          shouldReply: true,
+          wasCommand: true,
+          reply: result.message,
+        };
+      }
+
+      // ── /explain — plain-English paper explanation ────────────────────
+      if (parsed.kind === 'explain') {
+        const { query, level } = parsed.explain;
+        const result = await explainPaper({ db, query, level, repoRoot });
+        if (!result.ok) {
+          const reply =
+            result.error === 'ambiguous'
+              ? result.message
+              : result.message;
+          return {
+            shouldReply: true,
+            wasCommand: true,
+            reply,
+          };
+        }
+        return {
+          shouldReply: true,
+          wasCommand: true,
+          reply: formatExplainReply(result),
         };
       }
 
@@ -654,6 +733,9 @@ export function createFeedbackHandler(opts: HandlerOptions = {}) {
         }
         if (parsed.query.command === 'streak') {
           return handleStreakQuery(db, parsed.query);
+        }
+        if (parsed.query.command === 'progress') {
+          return handleProgressQuery(db);
         }
         return { shouldReply: false, wasCommand: false };
       }

@@ -11,6 +11,8 @@ import { migrate } from '../db.js';
 import { ensureFeedbackTables } from './migrate.js';
 import { parseFeedbackMessage } from './parser.js';
 import { recordFeedback } from './recorder.js';
+import { buildProgressData } from '../progress/progress.js';
+import { renderProgressReply } from '../progress/render-progress.js';
 import type { Db } from '../db.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -108,6 +110,21 @@ function createInlineHandler(db: Db) {
           return { shouldReply: true, wasCommand: true, reply: lines.join('\n') };
         }
         return { shouldReply: false, wasCommand: false };
+      }
+
+      // paper-query (/ask) — not tested in this inline handler; delegate gracefully
+      if (parsed.kind === 'paper-query') {
+        return { shouldReply: false, wasCommand: true };
+      }
+
+      // explain (/explain) — not tested in this inline handler; delegate gracefully
+      if (parsed.kind === 'explain') {
+        return { shouldReply: false, wasCommand: true };
+      }
+
+      // help (/help) — not tested in this inline handler; delegate gracefully
+      if (parsed.kind === 'help') {
+        return { shouldReply: false, wasCommand: true };
       }
 
       const { feedbackType, arxivId, notes, reason, priority } = parsed.feedback;
@@ -285,5 +302,36 @@ describe('handler /reading-list', () => {
 
     const result = handler.handle('/reading-list');
     expect(result.reply).toContain('/read <id>');
+  });
+});
+
+// ── /progress ─────────────────────────────────────────────────────────────────
+
+describe('handler /progress', () => {
+  let db: Db;
+
+  beforeEach(() => {
+    db = makeTestDb();
+  });
+
+  it('parser recognises /progress as a query command', () => {
+    const parsed = parseFeedbackMessage('/progress');
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok && parsed.kind === 'query') {
+      expect(parsed.query.command).toBe('progress');
+    }
+  });
+
+  it('buildProgressData + renderProgressReply works with empty DB', () => {
+    const data = buildProgressData(db);
+    const reply = renderProgressReply(data);
+    expect(typeof reply).toBe('string');
+    expect(reply).toMatch(/Learning velocity/);
+  });
+
+  it('renders zero-state nudge for empty DB', () => {
+    const data = buildProgressData(db);
+    const reply = renderProgressReply(data);
+    expect(reply).toMatch(/No reads logged|\/read/);
   });
 });

@@ -36,7 +36,7 @@
  */
 
 export type FeedbackType = 'read' | 'skip' | 'save' | 'love' | 'meh';
-export type QueryCommand = 'reading-list' | 'status' | 'stats' | 'weekly' | 'search' | 'trends' | 'digest' | 'recommend' | 'preview' | 'streak';
+export type QueryCommand = 'reading-list' | 'status' | 'stats' | 'weekly' | 'search' | 'trends' | 'digest' | 'recommend' | 'preview' | 'streak' | 'progress';
 
 export interface ParsedFeedback {
   feedbackType: FeedbackType;
@@ -93,13 +93,55 @@ export interface ParseResultQueryOk {
   query: ParsedQuery;
 }
 
+export interface ParsedPaperQuery {
+  command: 'ask';
+  arxivId: string;
+  question: string;
+  raw: string;
+}
+
+export interface ParseResultPaperQueryOk {
+  ok: true;
+  kind: 'paper-query';
+  paperQuery: ParsedPaperQuery;
+}
+
+export type ExplainLevel = 'eli12' | 'undergrad' | 'engineer';
+
+export interface ParsedExplain {
+  command: 'explain';
+  /** Query: arxiv ID, title keywords, or digest ref like "#2 from today" */
+  query: string;
+  level: ExplainLevel;
+  raw: string;
+}
+
+export interface ParseResultExplainOk {
+  ok: true;
+  kind: 'explain';
+  explain: ParsedExplain;
+}
+
+export interface ParsedHelp {
+  command: 'help';
+  /** Command name to look up detail for, or null for overview */
+  commandName: string | null;
+  raw: string;
+}
+
+export interface ParseResultHelpOk {
+  ok: true;
+  kind: 'help';
+  help: ParsedHelp;
+}
+
 export interface ParseResultError {
   ok: false;
-  error: 'not_a_command' | 'unknown_command' | 'missing_arxiv_id' | 'invalid_arxiv_id';
+  error: 'not_a_command' | 'unknown_command' | 'missing_arxiv_id' | 'invalid_arxiv_id' | 'missing_question' | 'missing_explain_query';
   message: string;
 }
 
-export type ParseResult = ParseResultOk | ParseResultQueryOk | ParseResultError;
+export type ParseResult = ParseResultOk | ParseResultQueryOk | ParseResultPaperQueryOk | ParseResultExplainOk | ParseResultHelpOk | ParseResultError;
 
 // Arxiv ID regex: 4-digit year-month + 4-5 digits + optional version
 const ARXIV_ID_RE = /\b(\d{4}\.\d{4,5})(v\d+)?\b/;
@@ -111,7 +153,7 @@ const ARXIV_URL_RE = /https?:\/\/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})(v\d+)
 const ARXIV_PREFIX_RE = /\barxiv:(\d{4}\.\d{4,5})(v\d+)?\b/i;
 
 const FEEDBACK_COMMANDS: Set<string> = new Set(['read', 'skip', 'save', 'love', 'meh']);
-const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats', 'weekly', 'search', 'trends', 'digest', 'recommend', 'preview', 'streak']);
+const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats', 'weekly', 'search', 'trends', 'digest', 'recommend', 'preview', 'streak', 'progress']);
 
 /**
  * Extract and normalise an arxiv ID from a string fragment.
@@ -323,11 +365,106 @@ export function parseFeedbackMessage(text: string): ParseResult {
     };
   }
 
+  // ── /ask — paper Q&A (arxiv ID + question) ──────────────────────────
+  if (command === 'ask') {
+    // First token = arxiv ID, rest = question
+    const tokens = rest.split(/\s+/);
+    const idToken = tokens[0] ?? '';
+    const question = tokens.slice(1).join(' ').trim();
+
+    const arxivId = extractArxivId(idToken) ?? extractArxivId(rest);
+
+    if (!arxivId) {
+      return {
+        ok: false,
+        error: 'missing_arxiv_id',
+        message:
+          'Missing arxiv ID. Usage: /ask <arxiv-id> <question>\n\n' +
+          'Example: /ask 2402.01234 what is the key contribution?',
+      };
+    }
+
+    if (!question) {
+      return {
+        ok: false,
+        error: 'missing_question',
+        message:
+          `Missing question. Usage: /ask <arxiv-id> <question>\n\n` +
+          `Example: /ask ${arxivId} what is the key contribution?`,
+      };
+    }
+
+    return {
+      ok: true,
+      kind: 'paper-query' as const,
+      paperQuery: {
+        command: 'ask',
+        arxivId,
+        question,
+        raw: trimmed,
+      },
+    };
+  }
+
+  // ── /explain — plain-English paper explanation ───────────────────────
+  if (command === 'explain') {
+    // Syntax: /explain <query> [--level eli12|undergrad|engineer]
+    // Query = everything before the first --flag (arxiv ID, title, or digest ref)
+    const flagIdx = rest.search(/--[\w-]+/);
+    const rawQuery = flagIdx === -1 ? rest.trim() : rest.slice(0, flagIdx).trim();
+    const flagPart = flagIdx === -1 ? '' : rest.slice(flagIdx);
+
+    if (!rawQuery) {
+      return {
+        ok: false,
+        error: 'missing_explain_query',
+        message:
+          'Missing query. Usage: /explain <arxiv-id or title or #N from today>\n\n' +
+          'Examples:\n' +
+          '  /explain 2402.01234\n' +
+          '  /explain attention is all you need\n' +
+          '  /explain #2 from today\n' +
+          '  /explain 2402.01234 --level eli12',
+      };
+    }
+
+    // Parse --level flag
+    const levelMatch = /--level\s+(eli12|undergrad|engineer)/i.exec(flagPart);
+    const level: ExplainLevel = levelMatch
+      ? (levelMatch[1]!.toLowerCase() as ExplainLevel)
+      : 'engineer';
+
+    return {
+      ok: true,
+      kind: 'explain' as const,
+      explain: {
+        command: 'explain',
+        query: rawQuery,
+        level,
+        raw: trimmed,
+      },
+    };
+  }
+
+  // ── /help — command reference ────────────────────────────────────────
+  if (command === 'help') {
+    const commandName = rest.trim() || null;
+    return {
+      ok: true,
+      kind: 'help' as const,
+      help: {
+        command: 'help',
+        commandName,
+        raw: trimmed,
+      },
+    };
+  }
+
   if (!FEEDBACK_COMMANDS.has(command)) {
     return {
       ok: false,
       error: 'unknown_command',
-      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly /search /trends /digest /recommend /preview /streak`,
+      message: `Unknown command: /${command}. Supported: /read /skip /save /love /meh /reading-list /status /stats /weekly /search /trends /digest /recommend /preview /streak /progress /ask /explain /help`,
     };
   }
 
