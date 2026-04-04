@@ -137,7 +137,7 @@ async function main() {
     process.exit(0);
   }
 
-  // Fast-path fetch options — tight budget to stay within 60s
+  // Fast-path fetch options — tight budget to stay within 60s per fetch
   const fastFetchOpts = {
     maxAttempts: 2,
     fetchTimeoutMs: 10_000,
@@ -148,18 +148,30 @@ async function main() {
   const discoveryErrors: Array<{ category: string; error: string }> = [];
 
   // Step 1+2: Fetch arxiv + match tracks
-  console.log(`[send-daily-digest] Fetching ${config.discovery.categories.length} categories...`);
-  for (const cat of config.discovery.categories) {
-    let xml: string;
-    try {
-      xml = await fetchAtom(cat, fetchMaxResults, fastFetchOpts);
-    } catch (e) {
-      const msg = String((e as any)?.message ?? e);
+  // Fetch ALL categories in parallel — reduces worst-case from N×25s to ~25s.
+  // DB writes remain serial (SQLite sync) after all fetches complete.
+  console.log(`[send-daily-digest] Fetching ${config.discovery.categories.length} categories (parallel)...`);
+
+  const fetchResults = await Promise.allSettled(
+    config.discovery.categories.map(async (cat) => {
+      const xml = await fetchAtom(cat, fetchMaxResults, fastFetchOpts);
+      return { cat, xml };
+    })
+  );
+
+  for (let i = 0; i < config.discovery.categories.length; i++) {
+    const cat = config.discovery.categories[i]!;
+    const result = fetchResults[i]!;
+
+    if (result.status === 'rejected') {
+      const reason = result.reason as { message?: string } | string | undefined;
+      const msg = String(typeof reason === 'object' && reason !== null ? reason.message ?? reason : reason);
       console.warn(`Discovery fetch failed for ${cat}: ${msg}`);
       discoveryErrors.push({ category: cat, error: msg });
       continue;
     }
 
+    const { xml } = result.value;
     const entries = parseAtom(xml);
     const recent = entries.filter((e) => withinLastDays(e.updatedAt || e.publishedAt, daysWindow, now));
 
