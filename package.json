@@ -1,7 +1,7 @@
 {
   "name": "arxiv-coach",
   "version": "0.1.0",
-  "description": "Personal arXiv → learning pipeline for Mikey (LLM engineering, agent-first).",
+  "description": "Personal arXiv \u2192 learning pipeline for Mikey (LLM engineering, agent-first).",
   "type": "module",
   "private": true,
   "license": "MIT",
@@ -40,8 +40,7 @@
     "artifacts-slow": "tsx src/scripts/fetch-artifacts-slow.ts",
     "hottest": "tsx --env-file=.env src/scripts/hottest.ts",
     "check-hot-papers": "tsx src/scripts/check-hot-papers.ts",
-    "ask": "tsx src/cli/ask.ts",
-    "explain": "tsx src/cli/explain.ts"
+    "send-daily-digest": "tsx --env-file=.env src/scripts/send-daily-digest.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
