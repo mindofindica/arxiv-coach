@@ -171,3 +171,100 @@ describe('isoDate helper', () => {
     expect(isoDate(d)).toBe('2026-12-31');
   });
 });
+
+
+describe('parallel category fetch behaviour', () => {
+  /**
+   * Simulate the allSettled pattern used in send-daily-digest to verify:
+   *  - fulfilled fetches are processed correctly
+   *  - rejected fetches are captured in discoveryErrors without aborting others
+   *  - fetch time is bounded by the slowest single fetch (not their sum)
+   */
+
+  async function simulateParallelFetch(
+    categories: string[],
+    mockFetch: (cat: string) => Promise<string>
+  ): Promise<{
+    results: Array<{ cat: string; xml: string } | null>;
+    errors: Array<{ category: string; error: string }>;
+    elapsedMs: number;
+  }> {
+    const start = Date.now();
+    const discoveryErrors: Array<{ category: string; error: string }> = [];
+    const settled = await Promise.allSettled(
+      categories.map(async (cat) => {
+        const xml = await mockFetch(cat);
+        return { cat, xml };
+      })
+    );
+    const results = settled.map((r, i) => {
+      if (r.status === 'rejected') {
+        const reason = r.reason as { message?: string } | string | undefined;
+        const msg = String(typeof reason === 'object' && reason !== null ? reason.message ?? reason : reason);
+        discoveryErrors.push({ category: categories[i]!, error: msg });
+        return null;
+      }
+      return r.value;
+    });
+    return { results, errors: discoveryErrors, elapsedMs: Date.now() - start };
+  }
+
+  it('processes all successful fetches', async () => {
+    const cats = ['cs.AI', 'cs.CL', 'cs.LG', 'cs.IR'];
+    const { results, errors } = await simulateParallelFetch(cats, async (cat) => `<xml>${cat}</xml>`);
+    expect(errors).toHaveLength(0);
+    expect(results).toHaveLength(4);
+    expect(results.every((r) => r !== null)).toBe(true);
+    expect(results[0]!?.cat).toBe('cs.AI');
+    expect(results[0]!?.xml).toBe('<xml>cs.AI</xml>');
+  });
+
+  it('captures failed fetches in discoveryErrors without throwing', async () => {
+    const cats = ['cs.AI', 'cs.CL', 'cs.LG'];
+    const { results, errors } = await simulateParallelFetch(cats, async (cat) => {
+      if (cat === 'cs.CL') throw new Error('arXiv 429 rate limit');
+      return `<xml>${cat}</xml>`;
+    });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.category).toBe('cs.CL');
+    expect(errors[0]!.error).toContain('rate limit');
+    // Other results still present
+    expect(results[0]!).not.toBeNull();
+    expect(results[1]!).toBeNull(); // failed
+    expect(results[2]!).not.toBeNull();
+  });
+
+  it('runs in parallel — elapsed time close to slowest fetch, not sum', async () => {
+    const DELAY = 30; // ms per fetch
+    const cats = ['cs.AI', 'cs.CL', 'cs.LG', 'cs.IR']; // 4 fetches
+    const { elapsedMs } = await simulateParallelFetch(
+      cats,
+      (cat) => new Promise<string>((resolve) => setTimeout(() => resolve(`<xml>${cat}</xml>`), DELAY))
+    );
+    // Parallel: should be ~30ms, definitely < 4 × 30ms = 120ms
+    expect(elapsedMs).toBeLessThan(DELAY * cats.length - DELAY); // at least one overlap
+  });
+
+  it('all categories fail gracefully — no unhandled rejection', async () => {
+    const cats = ['cs.AI', 'cs.CL'];
+    const { results, errors } = await simulateParallelFetch(cats, async () => {
+      throw new Error('network unreachable');
+    });
+    expect(errors).toHaveLength(2);
+    expect(results.every((r) => r === null)).toBe(true);
+  });
+
+  it('result order matches category order even with different fetch speeds', async () => {
+    const cats = ['cs.AI', 'cs.CL', 'cs.LG'];
+    // cs.AI is slowest, cs.LG fastest — order in results should still follow cats order
+    const delays: Record<string, number> = { 'cs.AI': 40, 'cs.CL': 20, 'cs.LG': 5 };
+    const { results } = await simulateParallelFetch(
+      cats,
+      (cat) => new Promise<string>((resolve) => setTimeout(() => resolve(`<xml>${cat}</xml>`), delays[cat]))
+    );
+    expect(results[0]?.cat).toBe('cs.AI');
+    expect(results[1]?.cat).toBe('cs.CL');
+    expect(results[2]?.cat).toBe('cs.LG');
+  });
+});
+
