@@ -22,9 +22,11 @@
  *   /search speculative decoding — full-text search over paper library
  *   /search RAG --limit 3      — limit to 3 results
  *   /search inference --track "LLM Efficiency" — filter by track
- *   /help                     — show all commands at a glance
- *   /help search              — detailed help for /search
- *   /help ask                 — detailed help for /ask
+ *   /streak                    — reading streak: current, longest, active days, 14-day sparkline
+ *   /streak --days 14          — active count over last 14 days (default 30)
+ *   /help                      — show all commands at a glance
+ *   /help search               — detailed help for /search
+ *   /help ask                  — detailed help for /ask
  *
  * All feedback commands support optional flags (Signal-safe unquoted form):
  *   --notes interesting ML approach    (captured as full multi-word string)
@@ -41,6 +43,8 @@
  *   tsx src/scripts/handle-feedback.ts "/weekly --track LLM"
  *   tsx src/scripts/handle-feedback.ts "/search speculative decoding"
  *   tsx src/scripts/handle-feedback.ts "/search RAG --limit 3"
+ *   tsx src/scripts/handle-feedback.ts "/streak"
+ *   tsx src/scripts/handle-feedback.ts "/streak --days 14"
  *   echo "/save 2501.98765 --notes great dataset" | tsx src/scripts/handle-feedback.ts
  *
  * Output (JSON on stdout):
@@ -56,6 +60,7 @@
  *   The main session handles incoming Signal messages matching:
  *   /read /skip /save /love /meh /reading-list /status /stats /weekly
  *   If shouldReply=true, Indica sends `reply` back to Mikey on Signal.
+ *   Includes: /streak (reading streak + sparkline)
  *   Full reference: docs/signal-commands.md
  */
 

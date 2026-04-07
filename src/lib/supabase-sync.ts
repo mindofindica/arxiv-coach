@@ -95,15 +95,16 @@ export async function syncPaperToSupabase(
 
   let res: Response;
   try {
-    res = await fetcher(`${url}/rest/v1/papers`, {
+    res = await fetcher(`${url}/rest/v1/papers?on_conflict=arxiv_id`, {
       method: 'POST',
       headers: {
         'apikey':        key,
         'Authorization': `Bearer ${key}`,
         'Content-Type':  'application/json',
-        'Prefer':        'resolution=merge-duplicates',
+        'Prefer':        'resolution=merge-duplicates,return=minimal',
       },
       body,
+      signal: AbortSignal.timeout(8000),
     });
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
