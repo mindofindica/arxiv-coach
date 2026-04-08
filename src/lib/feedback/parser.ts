@@ -36,7 +36,7 @@
  */
 
 export type FeedbackType = 'read' | 'skip' | 'save' | 'love' | 'meh';
-export type QueryCommand = 'reading-list' | 'status' | 'stats' | 'weekly' | 'search' | 'trends' | 'digest' | 'recommend' | 'preview' | 'streak' | 'progress';
+export type QueryCommand = 'reading-list' | 'status' | 'stats' | 'weekly' | 'search' | 'trends' | 'digest' | 'recommend' | 'preview' | 'streak' | 'progress' | 'gaps';
 
 export interface ParsedFeedback {
   feedbackType: FeedbackType;
@@ -78,6 +78,16 @@ export interface ParsedQuery {
    * Default: false (bypass dedup for on-demand use).
    */
   respectDedup: boolean;
+  /**
+   * For /gaps: whether to include understood gaps in the result.
+   * Set by --all flag. Default: false.
+   */
+  includeUnderstood: boolean;
+  /**
+   * For /gaps: filter by specific status ('identified' | 'lesson_queued' | 'understood').
+   * Set by --status flag.
+   */
+  gapsStatusFilter: string | null;
   raw: string;
 }
 
@@ -153,7 +163,7 @@ const ARXIV_URL_RE = /https?:\/\/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})(v\d+)
 const ARXIV_PREFIX_RE = /\barxiv:(\d{4}\.\d{4,5})(v\d+)?\b/i;
 
 const FEEDBACK_COMMANDS: Set<string> = new Set(['read', 'skip', 'save', 'love', 'meh']);
-const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats', 'weekly', 'search', 'trends', 'digest', 'recommend', 'preview', 'streak', 'progress']);
+const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats', 'weekly', 'search', 'trends', 'digest', 'recommend', 'preview', 'streak', 'progress', 'gaps']);
 
 /**
  * Extract and normalise an arxiv ID from a string fragment.
@@ -238,6 +248,8 @@ function parseQueryFlags(flagStr: string): {
   from: string | null;
   minScore: number;
   respectDedup: boolean;
+  includeUnderstood: boolean;
+  gapsStatusFilter: string | null;
 } {
   let status: 'unread' | 'read' | 'all' = 'unread';
   let limit = 5;
@@ -248,6 +260,8 @@ function parseQueryFlags(flagStr: string): {
   let from: string | null = null;
   let minScore = 3;
   let respectDedup = false;
+  let includeUnderstood = false;
+  let gapsStatusFilter: string | null = null;
 
   const segments = flagStr.split(/(--[\w-]+)/);
   for (let i = 1; i < segments.length; i += 2) {
@@ -282,10 +296,17 @@ function parseQueryFlags(flagStr: string): {
       if (!isNaN(n) && n >= 1 && n <= 5) minScore = n;
     } else if (key === 'dedup') {
       respectDedup = val !== 'false' && val !== '0';
+    } else if (key === 'all') {
+      // /gaps --all: include understood gaps
+      includeUnderstood = val !== 'false' && val !== '0';
+      if (val === '' || val === 'true' || val === '1') includeUnderstood = true;
+    } else if (key === 'status' && (val === 'identified' || val === 'lesson_queued' || val === 'understood')) {
+      // /gaps --status understood overrides the reading-list status
+      gapsStatusFilter = val;
     }
   }
 
-  return { status, limit, days, weeks, week, track, from, minScore, respectDedup };
+  return { status, limit, days, weeks, week, track, from, minScore, respectDedup, includeUnderstood, gapsStatusFilter };
 }
 
 /**
@@ -341,7 +362,7 @@ export function parseFeedbackMessage(text: string): ParseResult {
       }
     }
 
-    const { status, limit, days, weeks, week, track: flagTrack, from, minScore, respectDedup } = parseQueryFlags(flagInput);
+    const { status, limit, days, weeks, week, track: flagTrack, from, minScore, respectDedup, includeUnderstood, gapsStatusFilter } = parseQueryFlags(flagInput);
     // /digest: positional track arg wins over --track flag
     const resolvedTrack = command === 'digest' ? (digestTrackArg ?? flagTrack) : flagTrack;
 
@@ -360,6 +381,8 @@ export function parseFeedbackMessage(text: string): ParseResult {
         from,
         minScore,
         respectDedup,
+        includeUnderstood,
+        gapsStatusFilter,
         raw: trimmed,
       },
     };
