@@ -177,9 +177,14 @@ export const COMMANDS: CommandEntry[] = [
   {
     name: 'gaps',
     category: 'discovery',
-    summary: 'Topics underrepresented in your reading so far',
-    usage: '/gaps',
-    examples: ['/gaps'],
+    summary: 'Knowledge gaps — concepts you\'ve encountered but not yet learned',
+    usage: '/gaps [--all] [--limit N] [--status identified|lesson_queued|understood]',
+    examples: [
+      '/gaps',
+      '/gaps --all',
+      '/gaps --limit 15',
+      '/gaps --status understood',
+    ],
   },
   {
     name: 'digest',

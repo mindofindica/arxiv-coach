@@ -33,6 +33,8 @@ import { digestPreview, formatPreviewMessage } from '../preview/preview.js';
 import { getActiveDays, computeStreakStats, formatStreakReply } from '../streak/streak.js';
 import { buildProgressData } from '../progress/progress.js';
 import { renderProgressReply } from '../progress/render-progress.js';
+import { queryGaps } from '../gaps/query.js';
+import { renderGapsReply } from '../gaps/render-gaps.js';
 import type { Db } from '../db.js';
 
 export interface HandlerOptions {
@@ -617,6 +619,31 @@ function handleProgressQuery(db: Db): HandleResult {
   }
 }
 
+// ── Gaps query ─────────────────────────────────────────────────────────────
+
+function handleGapsQuery(db: Db, query: ParsedQuery): HandleResult {
+  try {
+    const { includeUnderstood, gapsStatusFilter, limit } = query;
+    const result = queryGaps(db, {
+      includeUnderstood,
+      statusFilter: gapsStatusFilter ?? null,
+      limit,
+    });
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: renderGapsReply(result, includeUnderstood),
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      shouldReply: true,
+      wasCommand: true,
+      reply: `❌ Error fetching gaps: ${msg}`,
+    };
+  }
+}
+
 // ── Handler factory ────────────────────────────────────────────────────────
 
 export function createFeedbackHandler(opts: HandlerOptions = {}) {
@@ -736,6 +763,9 @@ export function createFeedbackHandler(opts: HandlerOptions = {}) {
         }
         if (parsed.query.command === 'progress') {
           return handleProgressQuery(db);
+        }
+        if (parsed.query.command === 'gaps') {
+          return handleGapsQuery(db, parsed.query);
         }
         return { shouldReply: false, wasCommand: false };
       }
