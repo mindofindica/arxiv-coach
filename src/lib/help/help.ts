@@ -235,6 +235,16 @@ export const COMMANDS: CommandEntry[] = [
     ],
   },
   {
+    name: 'note',
+    category: 'feedback',
+    summary: 'Append a note to an existing paper feedback',
+    usage: '/note <arxiv-id> <note text>',
+    examples: [
+      '/note 2403.12345 connects to the multi-agent memory work',
+      '/note 2403.12345 see also Brown et al. 2020 — same trick',
+    ],
+  },
+  {
     name: 'help',
     category: 'info',
     summary: 'Show this command reference',
