@@ -38,6 +38,19 @@
 export type FeedbackType = 'read' | 'skip' | 'save' | 'love' | 'meh';
 export type QueryCommand = 'reading-list' | 'status' | 'stats' | 'weekly' | 'search' | 'trends' | 'digest' | 'recommend' | 'preview' | 'streak' | 'progress' | 'gaps';
 
+export interface ParsedNote {
+  command: 'note';
+  arxivId: string;
+  noteText: string;
+  raw: string;
+}
+
+export interface ParseResultNoteOk {
+  ok: true;
+  kind: 'note';
+  note: ParsedNote;
+}
+
 export interface ParsedFeedback {
   feedbackType: FeedbackType;
   arxivId: string;     // normalised, no version suffix, no prefix
@@ -151,7 +164,7 @@ export interface ParseResultError {
   message: string;
 }
 
-export type ParseResult = ParseResultOk | ParseResultQueryOk | ParseResultPaperQueryOk | ParseResultExplainOk | ParseResultHelpOk | ParseResultError;
+export type ParseResult = ParseResultOk | ParseResultQueryOk | ParseResultPaperQueryOk | ParseResultExplainOk | ParseResultHelpOk | ParseResultNoteOk | ParseResultError;
 
 // Arxiv ID regex: 4-digit year-month + 4-5 digits + optional version
 const ARXIV_ID_RE = /\b(\d{4}\.\d{4,5})(v\d+)?\b/;
@@ -164,6 +177,7 @@ const ARXIV_PREFIX_RE = /\barxiv:(\d{4}\.\d{4,5})(v\d+)?\b/i;
 
 const FEEDBACK_COMMANDS: Set<string> = new Set(['read', 'skip', 'save', 'love', 'meh']);
 const QUERY_COMMANDS: Set<string> = new Set(['reading-list', 'status', 'stats', 'weekly', 'search', 'trends', 'digest', 'recommend', 'preview', 'streak', 'progress', 'gaps']);
+const NOTE_COMMAND = 'note';
 
 /**
  * Extract and normalise an arxiv ID from a string fragment.
@@ -464,6 +478,48 @@ export function parseFeedbackMessage(text: string): ParseResult {
         command: 'explain',
         query: rawQuery,
         level,
+        raw: trimmed,
+      },
+    };
+  }
+
+  // ── /note — append a note to an existing feedback ───────────────────
+  if (command === NOTE_COMMAND) {
+    // Syntax: /note <arxiv-id> <note text>
+    const tokens = rest.split(/\s+/);
+    const idToken = tokens[0] ?? '';
+    const arxivId = extractArxivId(idToken) ?? extractArxivId(rest);
+
+    if (!arxivId) {
+      return {
+        ok: false,
+        error: 'missing_arxiv_id',
+        message:
+          'Missing arxiv ID. Usage: /note <arxiv-id> <note text>\n\n' +
+          'Example: /note 2402.01234 connects to the agent memory work',
+      };
+    }
+
+    // Note text = everything after the arxiv ID token
+    const noteText = tokens.slice(1).join(' ').trim();
+
+    if (!noteText) {
+      return {
+        ok: false,
+        error: 'missing_question',
+        message:
+          `Missing note text. Usage: /note <arxiv-id> <note text>\n\n` +
+          `Example: /note ${arxivId} great coverage of sparse attention`,
+      };
+    }
+
+    return {
+      ok: true,
+      kind: 'note' as const,
+      note: {
+        command: 'note',
+        arxivId,
+        noteText,
         raw: trimmed,
       },
     };

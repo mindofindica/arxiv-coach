@@ -122,8 +122,8 @@ function createInlineHandler(db: Db) {
         return { shouldReply: false, wasCommand: true };
       }
 
-      // help (/help) — not tested in this inline handler; delegate gracefully
-      if (parsed.kind === 'help') {
+      // help (/help) or note (/note) — not tested in this inline handler; delegate gracefully
+      if (parsed.kind === 'help' || parsed.kind === 'note') {
         return { shouldReply: false, wasCommand: true };
       }
 

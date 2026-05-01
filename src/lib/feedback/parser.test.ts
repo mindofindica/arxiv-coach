@@ -295,3 +295,68 @@ describe('/preview command', () => {
     }
   });
 });
+
+// ── /note parser tests ─────────────────────────────────────────────────────
+
+describe('/note command parsing', () => {
+  it('parses basic /note command', () => {
+    const r = parseFeedbackMessage('/note 2403.12345 connects to agent memory work');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.kind).toBe('note');
+      if (r.kind === 'note') {
+        expect(r.note.arxivId).toBe('2403.12345');
+        expect(r.note.noteText).toBe('connects to agent memory work');
+      }
+    }
+  });
+
+  it('handles versioned arxiv IDs', () => {
+    const r = parseFeedbackMessage('/note 2403.12345v3 follow-up reading needed');
+    expect(r.ok).toBe(true);
+    if (r.ok && r.kind === 'note') {
+      expect(r.note.arxivId).toBe('2403.12345');
+      expect(r.note.noteText).toBe('follow-up reading needed');
+    }
+  });
+
+  it('handles URL-format arxiv IDs', () => {
+    const r = parseFeedbackMessage('/note https://arxiv.org/abs/2403.12345 great benchmark');
+    expect(r.ok).toBe(true);
+    if (r.ok && r.kind === 'note') {
+      expect(r.note.arxivId).toBe('2403.12345');
+    }
+  });
+
+  it('returns missing_arxiv_id when no ID given', () => {
+    const r = parseFeedbackMessage('/note just a thought');
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error).toBe('missing_arxiv_id');
+    }
+  });
+
+  it('returns missing_question when note text is empty', () => {
+    const r = parseFeedbackMessage('/note 2403.12345');
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error).toBe('missing_question');
+    }
+  });
+
+  it('preserves multi-word note text', () => {
+    const r = parseFeedbackMessage('/note 2403.12345 applies directly to our sparse attention optimization work');
+    expect(r.ok).toBe(true);
+    if (r.ok && r.kind === 'note') {
+      expect(r.note.noteText).toBe('applies directly to our sparse attention optimization work');
+    }
+  });
+
+  it('stores raw message', () => {
+    const r = parseFeedbackMessage('/note 2403.12345 raw preserved');
+    expect(r.ok).toBe(true);
+    if (r.ok && r.kind === 'note') {
+      expect(r.note.raw).toBe('/note 2403.12345 raw preserved');
+    }
+  });
+});

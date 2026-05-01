@@ -35,6 +35,7 @@ import { buildProgressData } from '../progress/progress.js';
 import { renderProgressReply } from '../progress/render-progress.js';
 import { queryGaps } from '../gaps/query.js';
 import { renderGapsReply } from '../gaps/render-gaps.js';
+import { addNote, formatNoteReply } from '../note/note.js';
 import type { Db } from '../db.js';
 
 export interface HandlerOptions {
@@ -697,6 +698,26 @@ export function createFeedbackHandler(opts: HandlerOptions = {}) {
       }
 
       // ── /help — command reference ─────────────────────────────────────
+      // ── /note — append a note to existing feedback ───────────────────────
+      if (parsed.kind === 'note') {
+        const { arxivId, noteText } = parsed.note;
+        const result = addNote({ db, arxivId, noteText });
+        if (!result.ok) {
+          const reply = result.error === 'paper_not_found'
+            ? `❓ Paper not found: ${arxivId}
+
+Make sure the ID is correct. Example: /note 2402.01234 my thoughts here`
+            : `⚠️ Failed to save note: ${result.message}`;
+          return { shouldReply: true, wasCommand: true, reply };
+        }
+        return {
+          shouldReply: true,
+          wasCommand: true,
+          arxivId,
+          reply: formatNoteReply(result),
+        };
+      }
+
       if (parsed.kind === 'help') {
         const { commandName } = parsed.help;
         const result = getHelp({ commandName });
