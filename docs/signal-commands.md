@@ -455,6 +455,29 @@ Both are equivalent.
 | `/explain <query>` | ❌ | — | Plain-English paper explanation; accepts ID, title, or `#N from today` |
 | `/recommend` | ❌ | — | Personalised recommendations from feedback history |
 | `/preview` | ❌ | — | Dry-run of tomorrow's digest (no DB writes) |
+| `/gaps` | ❌ | — | List tracked knowledge gaps (concepts encountered but not yet learned) |
+
+---
+
+## `/gaps`
+
+View the knowledge gaps that have been detected in papers you've seen — concepts that appeared in abstracts or summaries that you may not be familiar with yet.
+
+```
+/gaps                       — active gaps (identified + lesson pending)
+/gaps --all                 — include understood gaps too
+/gaps --limit 15            — show more (default: 8)
+/gaps --status understood   — only show gaps you've marked as understood
+/gaps --status identified   — only show newly detected gaps
+```
+
+Each gap shows:
+- The concept name
+- Current status: 🔍 new / 📝 lesson pending / ✅ understood
+- Priority stars (★ = low, ★★★ = high)
+- The paper it came from (arxiv ID + title)
+
+Gaps are detected automatically when the scoring agent notes unfamiliar terminology. You can mark a gap as understood by engaging with its lesson (delivered automatically when available).
 
 ---
 

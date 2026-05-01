@@ -24,6 +24,10 @@
  *   /search inference --track "LLM Efficiency" — filter by track
  *   /streak                    — reading streak: current, longest, active days, 14-day sparkline
  *   /streak --days 14          — active count over last 14 days (default 30)
+ *   /gaps                      — knowledge gaps you've encountered but not yet learned
+ *   /gaps --all                — include understood gaps too
+ *   /gaps --limit 15           — show more gaps
+ *   /gaps --status understood  — only show understood gaps
  *   /help                      — show all commands at a glance
  *   /help search               — detailed help for /search
  *   /help ask                  — detailed help for /ask
@@ -45,6 +49,9 @@
  *   tsx src/scripts/handle-feedback.ts "/search RAG --limit 3"
  *   tsx src/scripts/handle-feedback.ts "/streak"
  *   tsx src/scripts/handle-feedback.ts "/streak --days 14"
+ *   tsx src/scripts/handle-feedback.ts "/gaps"
+ *   tsx src/scripts/handle-feedback.ts "/gaps --all"
+ *   tsx src/scripts/handle-feedback.ts "/gaps --status understood"
  *   echo "/save 2501.98765 --notes great dataset" | tsx src/scripts/handle-feedback.ts
  *
  * Output (JSON on stdout):
@@ -60,7 +67,7 @@
  *   The main session handles incoming Signal messages matching:
  *   /read /skip /save /love /meh /reading-list /status /stats /weekly
  *   If shouldReply=true, Indica sends `reply` back to Mikey on Signal.
- *   Includes: /streak (reading streak + sparkline)
+ *   Includes: /streak (reading streak + sparkline), /gaps (knowledge gap tracker)
  *   Full reference: docs/signal-commands.md
  */
 
